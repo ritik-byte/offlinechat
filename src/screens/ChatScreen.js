@@ -9,10 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Send, ArrowLeft, Wifi, WifiOff, Users, ChevronDown } from 'lucide-react-native';
+import { Send, ArrowLeft, Wifi, WifiOff, Users, ChevronDown, Camera, Image as ImageIcon, X, CornerUpRight } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInDown, Layout } from 'react-native-reanimated';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { colors, getInitials, getAvatarColor } from '../theme/colors';
 import SocketService from '../services/SocketService';
 import StorageService from '../services/StorageService';
@@ -26,6 +29,9 @@ export default function ChatScreen({ navigation, route }) {
   const [isOnline, setIsOnline] = useState(true);
   const [typingUser, setTypingUser] = useState(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+
   const flatListRef = useRef();
   const typingTimeoutRef = useRef(null);
   const lastTypingSentRef = useRef(0);
@@ -102,11 +108,66 @@ export default function ChatScreen({ navigation, route }) {
     };
   };
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
-    SocketService.sendMessage(inputText.trim(), peerId);
+  const handleSend = async (imageUri = null) => {
+    if (!inputText.trim() && !imageUri) return;
+    
+    let base64Image = null;
+    if (imageUri) {
+      setIsProcessingImage(true);
+      try {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          imageUri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        base64Image = `data:image/jpeg;base64,${manipResult.base64}`;
+      } catch (e) {
+        console.error('Image processing failed:', e);
+      } finally {
+        setIsProcessingImage(false);
+      }
+    }
+
+    const replyData = replyingTo ? {
+      id: replyingTo.id,
+      senderName: replyingTo.senderName,
+      text: replyingTo.text,
+    } : null;
+
+    SocketService.sendMessage(inputText.trim(), peerId, base64Image, replyData);
+    
     setInputText('');
+    setReplyingTo(null);
     setTypingUser(null);
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      handleSend(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Sorry, we need camera permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      handleSend(result.assets[0].uri);
+    }
   };
 
   const handleTextChange = (text) => {
@@ -168,31 +229,60 @@ export default function ChatScreen({ navigation, route }) {
           </View>
         )}
 
-        <Animated.View
-          entering={FadeInUp.duration(250)}
-          style={[
-            styles.messageBubble,
-            isMe ? styles.messageMe : styles.messageThem,
-          ]}
+        <TouchableOpacity
+          onLongPress={() => setReplyingTo(item)}
+          activeOpacity={0.9}
         >
-          {showSenderName && (
-            <Text style={[styles.messageSender, { color: senderColor }]}>
-              {item.senderName}
-            </Text>
-          )}
-          <Text style={styles.messageText}>{item.text}</Text>
-          <View style={styles.messageFooter}>
-            <Text style={styles.messageTime}>
-              {new Date(item.timestamp).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
-            {isMe && (
-              <Text style={styles.messageTick}>✓✓</Text>
+          <Animated.View
+            entering={FadeInUp.duration(250)}
+            style={[
+              styles.messageBubble,
+              isMe ? styles.messageMe : styles.messageThem,
+            ]}
+          >
+            {showSenderName && (
+              <Text style={[styles.messageSender, { color: senderColor }]}>
+                {item.senderName}
+              </Text>
             )}
-          </View>
-        </Animated.View>
+
+            {item.replyTo && (
+              <View style={styles.replyBubble}>
+                <View style={[styles.replyBar, { backgroundColor: isMe ? '#fff' : colors.primary }]} />
+                <View style={styles.replyContent}>
+                  <Text style={[styles.replyName, { color: isMe ? '#fff' : colors.primary }]}>
+                    {item.replyTo.senderName}
+                  </Text>
+                  <Text style={styles.replyText} numberOfLines={1}>
+                    {item.replyTo.text || 'Image'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {item.image && (
+              <Animated.Image
+                source={{ uri: item.image }}
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            )}
+
+            {item.text ? <Text style={styles.messageText}>{item.text}</Text> : null}
+            
+            <View style={styles.messageFooter}>
+              <Text style={styles.messageTime}>
+                {new Date(item.timestamp).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </Text>
+              {isMe && (
+                <Text style={styles.messageTick}>✓✓</Text>
+              )}
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -261,64 +351,96 @@ export default function ChatScreen({ navigation, route }) {
           ref={flatListRef}
           data={messages}
           keyExtractor={item => item.id}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messagesContainer}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={100}
-        onContentSizeChange={() => {
-          if (!showScrollBtn) {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }
-        }}
-        ListEmptyComponent={
-          <View style={styles.emptyChat}>
-            <View style={[styles.emptyChatIcon, { backgroundColor: avatarBg + '22' }]}>
-              {isGroup ? (
-                <Users color={avatarBg} size={32} />
-              ) : (
-                <Text style={[styles.emptyChatInitials, { color: avatarBg }]}>
-                  {initials}
-                </Text>
-              )}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesContainer}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (!showScrollBtn) {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyChat}>
+              <View style={[styles.emptyChatIcon, { backgroundColor: avatarBg + '22' }]}>
+                {isGroup ? (
+                  <Users color={avatarBg} size={32} />
+                ) : (
+                  <Text style={[styles.emptyChatInitials, { color: avatarBg }]}>
+                    {initials}
+                  </Text>
+                )}
+              </View>
+              <Text style={styles.emptyChatTitle}>{peerName}</Text>
+              <Text style={styles.emptyChatSubtitle}>
+                {isGroup
+                  ? 'Send a message to chat with everyone connected'
+                  : `Start your conversation with ${peerName}`}
+              </Text>
             </View>
-            <Text style={styles.emptyChatTitle}>{peerName}</Text>
-            <Text style={styles.emptyChatSubtitle}>
-              {isGroup
-                ? 'Send a message to chat with everyone connected'
-                : `Start your conversation with ${peerName}`}
-            </Text>
-          </View>
-        }
-      />
+          }
+        />
 
-      {/* Scroll to bottom button */}
-      {showScrollBtn && (
-        <TouchableOpacity style={styles.scrollBtn} onPress={scrollToBottom}>
-          <ChevronDown color={colors.text} size={20} />
-        </TouchableOpacity>
-      )}
+        {/* Scroll to bottom button */}
+        {showScrollBtn && (
+          <TouchableOpacity style={styles.scrollBtn} onPress={scrollToBottom}>
+            <ChevronDown color={colors.text} size={20} />
+          </TouchableOpacity>
+        )}
+
+        {replyingTo && (
+          <Animated.View entering={FadeInDown} style={styles.replyPreview}>
+            <View style={[styles.replyBar, { backgroundColor: colors.primary }]} />
+            <View style={styles.replyContent}>
+              <Text style={[styles.replyName, { color: colors.primary }]}>
+                Replying to {replyingTo.senderName}
+              </Text>
+              <Text style={styles.replyText} numberOfLines={1}>
+                {replyingTo.text || 'Image'}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setReplyingTo(null)} style={styles.closeReply}>
+              <X color={colors.textMuted} size={18} />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
 
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            placeholderTextColor={colors.textMuted}
-            value={inputText}
-            onChangeText={handleTextChange}
-            multiline
-            maxLength={2000}
-          />
+          <TouchableOpacity style={styles.iconButton} onPress={pickImage} disabled={isProcessingImage}>
+            <ImageIcon color={isProcessingImage ? colors.border : colors.textSecondary} size={22} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.iconButton} onPress={takePhoto} disabled={isProcessingImage}>
+            <Camera color={isProcessingImage ? colors.border : colors.textSecondary} size={22} />
+          </TouchableOpacity>
+
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.textMuted}
+              value={inputText}
+              onChangeText={handleTextChange}
+              multiline
+              maxLength={2000}
+            />
+          </View>
+
           <TouchableOpacity
-            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!inputText.trim()}
+            style={[styles.sendButton, (!inputText.trim() && !isProcessingImage) && styles.sendButtonDisabled]}
+            onPress={() => handleSend()}
+            disabled={!inputText.trim() && !isProcessingImage}
             activeOpacity={0.7}
           >
-            <Send
-              color={inputText.trim() ? colors.background : colors.textMuted}
-              size={18}
-            />
+            {isProcessingImage ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Send
+                color={inputText.trim() ? colors.background : colors.textMuted}
+                size={18}
+              />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -443,6 +565,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
+  messageImage: {
+    width: 240,
+    height: 180,
+    borderRadius: 12,
+    marginVertical: 4,
+    backgroundColor: colors.border,
+  },
   messageFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -459,81 +588,73 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 10,
   },
-  // ─── Empty Chat ───
-  emptyChat: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingTop: 80,
+  // ─── Reply System UI ───
+  replyBubble: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
   },
-  emptyChatIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  emptyChatInitials: {
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  emptyChatTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  emptyChatSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  // ─── Scroll Button ───
-  scrollBtn: {
-    position: 'absolute',
-    right: 16,
-    bottom: 80,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  replyPreview: {
+    flexDirection: 'row',
     backgroundColor: colors.surface,
-    justifyContent: 'center',
+    padding: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
   },
-  // ─── Input ───
+  replyBar: {
+    width: 4,
+    borderRadius: 2,
+    height: '100%',
+    marginRight: 10,
+  },
+  replyContent: {
+    flex: 1,
+  },
+  replyName: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  replyText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  closeReply: {
+    padding: 4,
+  },
+  // ─── Input Area ───
   inputContainer: {
     flexDirection: 'row',
-    padding: 10,
-    paddingBottom: Platform.OS === 'ios' ? 0 : 10,
+    alignItems: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    alignItems: 'flex-end',
-    gap: 8,
+    gap: 4,
   },
-  input: {
+  iconButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inputWrapper: {
     flex: 1,
-    backgroundColor: colors.background,
-    color: colors.text,
+    backgroundColor: colors.searchBar,
     borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 10,
-    maxHeight: 100,
-    minHeight: 44,
-    fontSize: 15,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: colors.border,
+    maxHeight: 120,
+  },
+  input: {
+    color: colors.text,
+    fontSize: 15,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   sendButton: {
     width: 44,
@@ -545,5 +666,51 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: colors.border,
+    opacity: 0.6,
+  },
+  // ─── Helpers ───
+  emptyChat: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
+  },
+  emptyChatIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  emptyChatInitials: {
+    fontSize: 32,
+    fontWeight: '700',
+  },
+  emptyChatTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  emptyChatSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 40,
+  },
+  scrollBtn: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    elevation: 4,
   },
 });

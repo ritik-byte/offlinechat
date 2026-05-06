@@ -474,10 +474,12 @@ class SocketService {
   /**
    * Send a message to a specific user or 'general' for group chat
    */
-  sendMessage(text, targetId) {
+  sendMessage(text, targetId, image = null, replyTo = null) {
     const messageObj = {
       id: `${this.deviceId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       text,
+      image, // Base64 string
+      replyTo, // { id, senderName, text }
       senderId: this.deviceId,
       senderName: this.deviceName,
       targetId,
