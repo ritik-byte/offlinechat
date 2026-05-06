@@ -248,9 +248,9 @@ export default function ChatScreen({ navigation, route }) {
 
             {item.replyTo && (
               <View style={styles.replyBubble}>
-                <View style={[styles.replyBar, { backgroundColor: isMe ? '#fff' : colors.primary }]} />
+                <View style={[styles.replyBar, { backgroundColor: '#666' }]} />
                 <View style={styles.replyContent}>
-                  <Text style={[styles.replyName, { color: isMe ? '#fff' : colors.primary }]}>
+                  <Text style={[styles.replyName, { color: '#888' }]}>
                     {item.replyTo.senderName}
                   </Text>
                   <Text style={styles.replyText} numberOfLines={1}>
@@ -300,9 +300,9 @@ export default function ChatScreen({ navigation, route }) {
           <ArrowLeft color={colors.text} size={22} />
         </TouchableOpacity>
 
-        <View style={[styles.headerAvatar, { backgroundColor: avatarBg }]}>
+        <View style={[styles.headerAvatar, { backgroundColor: isGroup ? '#000000' : avatarBg }]}>
           {isGroup ? (
-            <Users color="#fff" size={18} />
+            <Users color="#FFFFFF" size={18} />
           ) : (
             <Text style={styles.headerAvatarText}>{initials}</Text>
           )}
@@ -391,9 +391,9 @@ export default function ChatScreen({ navigation, route }) {
 
         {replyingTo && (
           <Animated.View entering={FadeInDown} style={styles.replyPreview}>
-            <View style={[styles.replyBar, { backgroundColor: colors.primary }]} />
+            <View style={[styles.replyBar, { backgroundColor: '#888' }]} />
             <View style={styles.replyContent}>
-              <Text style={[styles.replyName, { color: colors.primary }]}>
+              <Text style={[styles.replyName, { color: '#AAA' }]}>
                 Replying to {replyingTo.senderName}
               </Text>
               <Text style={styles.replyText} numberOfLines={1}>
@@ -434,7 +434,7 @@ export default function ChatScreen({ navigation, route }) {
             activeOpacity={0.7}
           >
             {isProcessingImage ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color="#4ADE80" size="small" />
             ) : (
               <Send
                 color={inputText.trim() ? colors.background : colors.textMuted}
@@ -451,20 +451,19 @@ export default function ChatScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   keyboardView: {
     flex: 1,
   },
-  // ─── Header ───
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    borderBottomColor: '#1A1A1A',
+    backgroundColor: '#0A0A0A',
     gap: 10,
   },
   backButton: {
@@ -473,29 +472,37 @@ const styles = StyleSheet.create({
   headerAvatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   headerAvatarText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
+    fontFamily: 'monospace',
   },
   headerInfo: {
     flex: 1,
   },
   headerTitle: {
-    color: colors.text,
-    fontSize: 17,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   headerSubRow: {
     marginTop: 1,
   },
   headerSubtext: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: '#444',
+    fontSize: 10,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   onlineRow: {
     flexDirection: 'row',
@@ -503,16 +510,16 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   miniDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 1,
   },
   typingText: {
-    color: colors.primary,
-    fontSize: 12,
-    fontStyle: 'italic',
+    color: '#888',
+    fontSize: 10,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
-  // ─── Messages ───
   messagesContainer: {
     padding: 12,
     paddingBottom: 4,
@@ -523,54 +530,60 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   datePill: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 2,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#1A1A1A',
   },
   dateText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
+    color: '#444',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   messageBubble: {
     maxWidth: '80%',
     paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 4,
-    borderRadius: 16,
+    borderRadius: 2,
     marginBottom: 3,
   },
   messageMe: {
     alignSelf: 'flex-end',
-    backgroundColor: colors.messageMe,
-    borderBottomRightRadius: 4,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   messageThem: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.messageThem,
-    borderBottomLeftRadius: 4,
+    backgroundColor: '#0A0A0A',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#1A1A1A',
   },
   messageSender: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '900',
     marginBottom: 2,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   messageText: {
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 21,
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'monospace',
   },
   messageImage: {
     width: 240,
     height: 180,
-    borderRadius: 12,
+    borderRadius: 2,
     marginVertical: 4,
-    backgroundColor: colors.border,
+    backgroundColor: '#111',
   },
   messageFooter: {
     flexDirection: 'row',
@@ -581,32 +594,36 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   messageTime: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 10,
+    color: '#333',
+    fontSize: 9,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   messageTick: {
-    color: colors.primary,
+    color: '#666',
     fontSize: 10,
   },
-  // ─── Reply System UI ───
   replyBubble: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.08)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 2,
     padding: 8,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#222',
+    alignSelf: 'stretch',
+    minWidth: 120,
   },
   replyPreview: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: '#0A0A0A',
     padding: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: '#1A1A1A',
     alignItems: 'center',
   },
   replyBar: {
-    width: 4,
-    borderRadius: 2,
+    width: 2,
     height: '100%',
     marginRight: 10,
   },
@@ -614,26 +631,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   replyName: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 10,
+    fontWeight: '900',
     marginBottom: 2,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   replyText: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#444',
+    fontFamily: 'monospace',
   },
   closeReply: {
     padding: 4,
   },
-  // ─── Input Area ───
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 8,
     paddingVertical: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: '#0A0A0A',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: '#1A1A1A',
     gap: 4,
   },
   iconButton: {
@@ -643,32 +663,32 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flex: 1,
-    backgroundColor: colors.searchBar,
-    borderRadius: 22,
+    backgroundColor: '#000000',
+    borderRadius: 2,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#333',
     maxHeight: 120,
   },
   input: {
-    color: colors.text,
-    fontSize: 15,
+    color: '#FFFFFF',
+    fontSize: 14,
     paddingTop: 8,
     paddingBottom: 8,
+    fontFamily: 'monospace',
   },
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primary,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: colors.border,
+    backgroundColor: '#1A1A1A',
     opacity: 0.6,
   },
-  // ─── Helpers ───
   emptyChat: {
     flex: 1,
     justifyContent: 'center',
@@ -678,26 +698,34 @@ const styles = StyleSheet.create({
   emptyChatIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#222',
   },
   emptyChatInitials: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 28,
+    fontWeight: '900',
+    fontFamily: 'monospace',
   },
   emptyChatTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   emptyChatSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#444',
     textAlign: 'center',
     paddingHorizontal: 40,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   scrollBtn: {
     position: 'absolute',
@@ -705,12 +733,13 @@ const styles = StyleSheet.create({
     right: 20,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
+    borderRadius: 2,
+    backgroundColor: '#0A0A0A',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#333',
     elevation: 4,
   },
 });
+

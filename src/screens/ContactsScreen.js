@@ -26,7 +26,7 @@ import StorageService from '../services/StorageService';
 
 const GENERAL_CHAT = {
   deviceId: 'general',
-  deviceName: 'General Chat',
+  deviceName: 'STRAT OPS',
   isGroup: true,
   online: true,
 };
@@ -158,9 +158,9 @@ export default function ContactsScreen({ navigation, route }) {
           activeOpacity={0.7}
         >
           {/* Avatar */}
-          <View style={[styles.contactAvatar, { backgroundColor: avatarBg }]}>
+          <View style={[styles.contactAvatar, { backgroundColor: isGroup ? '#000000' : avatarBg }]}>
             {isGroup ? (
-              <Users color="#fff" size={22} />
+              <Users color="#FFFFFF" size={22} />
             ) : (
               <Text style={styles.contactAvatarText}>{initials}</Text>
             )}
@@ -204,11 +204,11 @@ export default function ContactsScreen({ navigation, route }) {
       <View style={styles.emptyIconCircle}>
         <Radio color={colors.textMuted} size={40} />
       </View>
-      <Text style={styles.emptyTitle}>Waiting for users...</Text>
+      <Text style={styles.emptyTitle}>Awaiting personnel...</Text>
       <Text style={styles.emptySubtitle}>
         {mode === 'host'
-          ? 'Ask others to connect to your hotspot and open NexusChat'
-          : 'Other users will appear here when they connect'}
+          ? 'Direct troops to connect to your network and open the app'
+          : 'Other personnel will appear here when they join the network'}
       </Text>
     </View>
   );
@@ -224,7 +224,7 @@ export default function ContactsScreen({ navigation, route }) {
             <ArrowLeft color={colors.text} size={22} />
           </TouchableOpacity>
           <View style={styles.headerTitleArea}>
-            <Text style={styles.headerTitle}>NexusChat</Text>
+            <Text style={styles.headerTitle}>14 Grenadiers</Text>
             <View style={styles.statusRow}>
               {status.includes('Error') || status.includes('Disconnect') ? (
                 <WifiOff color={colors.error} size={12} />
@@ -277,8 +277,8 @@ export default function ContactsScreen({ navigation, route }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor="#4ADE80"
+            colors={["#4ADE80"]}
           />
         }
       />
@@ -315,15 +315,15 @@ function formatTime(timestamp) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   header: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#0A0A0A',
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#1A1A1A',
   },
   headerTop: {
     flexDirection: 'row',
@@ -338,9 +338,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
   },
   statusRow: {
     flexDirection: 'row',
@@ -349,74 +352,84 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   statusText: {
-    fontSize: 11,
-    color: colors.success,
+    fontSize: 10,
+    color: '#666',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   userCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primaryMuted,
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 2,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   userCountText: {
-    color: colors.primary,
+    color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '900',
+    fontFamily: 'monospace',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.searchBar,
-    borderRadius: 10,
+    backgroundColor: '#000000',
+    borderRadius: 2,
     paddingHorizontal: 12,
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
   },
   searchInput: {
     flex: 1,
-    color: colors.text,
-    fontSize: 15,
+    color: '#FFFFFF',
+    fontSize: 13,
     paddingVertical: 10,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   listContent: {
     paddingVertical: 4,
     flexGrow: 1,
   },
-  // ─── Contact Item ───
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 14,
-    borderBottomWidth: 0.5,
-    borderBottomColor: colors.divider,
+    borderBottomWidth: 1,
+    borderBottomColor: '#111',
   },
   contactAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 48,
+    height: 48,
+    borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   contactAvatarText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: 'monospace',
   },
   onlineDot: {
     position: 'absolute',
-    bottom: 1,
-    right: 1,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    backgroundColor: colors.online,
-    borderWidth: 2.5,
-    borderColor: colors.background,
+    bottom: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 2,
+    backgroundColor: '#4ADE80',
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   contactInfo: {
     flex: 1,
@@ -428,15 +441,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   contactName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
     flex: 1,
     marginRight: 8,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   contactTime: {
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: 10,
+    color: '#444',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   contactBottomRow: {
     flexDirection: 'row',
@@ -444,14 +462,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   contactLastMsg: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontSize: 12,
+    color: '#555',
     flex: 1,
     marginRight: 8,
+    fontFamily: 'monospace',
+    letterSpacing: 0.5,
   },
   unreadBadge: {
-    backgroundColor: colors.unreadBadge,
-    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
     minWidth: 22,
     height: 22,
     justifyContent: 'center',
@@ -459,11 +479,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   unreadText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '900',
+    fontFamily: 'monospace',
   },
-  // ─── Empty State ───
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -474,41 +494,48 @@ const styles = StyleSheet.create({
   emptyIconCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.surface,
+    borderRadius: 4,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: '#333',
     marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
     marginBottom: 8,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#444',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
-  // ─── Footer ───
   footer: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#0A0A0A',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: '#1A1A1A',
     alignItems: 'center',
   },
   footerText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: '#444',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   footerIp: {
-    color: colors.primary,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
 });
+

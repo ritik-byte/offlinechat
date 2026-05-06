@@ -11,7 +11,7 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowRight, User, Wifi } from 'lucide-react-native';
+import { ArrowRight, User, Shield } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import StorageService from '../services/StorageService';
@@ -80,27 +80,27 @@ export default function SetupScreen({ navigation }) {
         {/* Top Branding */}
         <Animated.View entering={FadeInDown.duration(800)} style={styles.brandArea}>
           <RNAnimated.View style={[styles.iconCircle, { transform: [{ scale: pulseAnim }] }]}>
-            <Wifi color={colors.primary} size={40} />
+            <Shield color={colors.primary} size={40} />
           </RNAnimated.View>
-          <Text style={styles.brandTitle}>NexusChat</Text>
-          <Text style={styles.brandTagline}>Offline Communication System</Text>
+          <Text style={styles.brandTitle}>14 GRENADIERS</Text>
+          <Text style={styles.brandTagline}>⚔ EK AUR CHAR ⚔</Text>
         </Animated.View>
 
         {/* Setup Form */}
         <Animated.View entering={FadeInUp.duration(800).delay(400)} style={styles.formCard}>
           <View style={styles.formHeader}>
             <User color={colors.primary} size={24} />
-            <Text style={styles.formTitle}>What's your name?</Text>
+            <Text style={styles.formTitle}>Identify Yourself, Soldier</Text>
           </View>
           <Text style={styles.formSubtitle}>
-            This will be shown to other users when they connect to your device.
-            You only need to set this once.
+            Your callsign will be visible to other personnel on the network.
+            Set this once — it stays on your device.
           </Text>
 
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Alex, My Phone..."
+              placeholder="e.g., Cpt. Sharma, Alpha-7..."
               placeholderTextColor={colors.textMuted}
               value={name}
               onChangeText={(t) => {
@@ -137,8 +137,8 @@ export default function SetupScreen({ navigation }) {
 
         <Animated.View entering={FadeInUp.duration(800).delay(800)} style={styles.footer}>
           <Text style={styles.footerText}>
-            Your name is stored only on this device.{'\n'}
-            No internet required. 100% private.
+            Your identity is stored only on this device.{'\n'}
+            No internet required. Fully encrypted. 100% tactical.
           </Text>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -149,7 +149,7 @@ export default function SetupScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#000000',
   },
   keyboardView: {
     flex: 1,
@@ -163,31 +163,35 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.primaryMuted,
+    borderRadius: 4,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: '#FFFFFF',
     marginBottom: 16,
   },
   brandTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    letterSpacing: 1,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 6,
+    fontFamily: 'monospace',
   },
   brandTagline: {
     fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 6,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: 8,
+    letterSpacing: 6,
+    fontFamily: 'monospace',
   },
   formCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
+    backgroundColor: '#0A0A0A',
+    borderRadius: 2,
     padding: 24,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#222',
   },
   formHeader: {
     flexDirection: 'row',
@@ -196,46 +200,56 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   formTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   formSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
+    fontSize: 11,
+    color: '#555',
+    lineHeight: 18,
     marginBottom: 20,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   inputWrapper: {
     position: 'relative',
     marginBottom: 12,
   },
   input: {
-    backgroundColor: colors.background,
-    color: colors.text,
-    fontSize: 18,
-    borderRadius: 14,
+    backgroundColor: '#000000',
+    color: '#FFFFFF',
+    fontSize: 16,
+    borderRadius: 2,
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#333',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   charCount: {
     position: 'absolute',
     right: 14,
     bottom: 14,
-    fontSize: 12,
-    color: colors.textMuted,
+    fontSize: 10,
+    color: '#333',
+    fontFamily: 'monospace',
   },
   errorText: {
-    color: colors.error,
-    fontSize: 13,
+    color: '#FF3333',
+    fontSize: 11,
     marginBottom: 12,
     marginLeft: 4,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
     paddingVertical: 16,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -244,21 +258,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitButtonDisabled: {
-    backgroundColor: colors.border,
+    backgroundColor: '#1A1A1A',
   },
   submitText: {
-    color: colors.background,
-    fontSize: 17,
-    fontWeight: '700',
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
   },
   footer: {
     marginTop: 32,
     alignItems: 'center',
   },
   footerText: {
-    color: colors.textMuted,
-    fontSize: 12,
+    color: '#333',
+    fontSize: 10,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 16,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
 });
+

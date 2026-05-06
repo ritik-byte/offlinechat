@@ -3,7 +3,7 @@ import { NetworkInfo } from 'react-native-network-info';
 
 const PORT = 12345;
 const DELIMITER = '\n<<END>>\n';
-const SCAN_TIMEOUT = 800; // Faster scanning
+const SCAN_TIMEOUT = 3000; // 3s for router reliability
 const HEARTBEAT_INTERVAL = 5000;
 
 /**
@@ -38,6 +38,7 @@ class SocketService {
 
     // Buffer for TCP message fragmentation
     this.buffers = new Map(); // socketId -> partial data string
+    this.scanSockets = [];    // Track sockets during discovery
   }
 
   // ─── Listener Management ──────────────────────────────────
@@ -159,12 +160,14 @@ class SocketService {
     this.deviceName = deviceName;
     this.deviceId = deviceId;
     const ip = await this.getIpAddress();
+    this.myIp = ip; // Store own IP
 
     return new Promise((resolve, reject) => {
       try {
         console.log(`SERVER: Starting server on port ${PORT} (Attempt ${retryCount + 1})...`);
         this.server = TcpSocket.createServer((socket) => {
           const socketId = `${socket.remoteAddress}:${socket.remotePort}`;
+          console.log(`SERVER: New connection from ${socketId}`);
           this.buffers.set(socketId, '');
 
           socket.on('data', (rawData) => {
@@ -204,10 +207,14 @@ class SocketService {
           }
 
           this.notifyStatus(`Server Error: ${msg}`);
+          if (msg.includes('EADDRINUSE')) {
+            console.error('SERVER: Port in use. Please wait or restart app.');
+          }
           reject(error);
         });
 
         this.server.on('close', () => {
+          console.log('SERVER: Server instance closed');
           this.notifyStatus('Server closed');
         });
       } catch (err) {
@@ -380,6 +387,17 @@ class SocketService {
     }
 
     return new Promise((resolve, reject) => {
+      let resolved = false;
+      
+      const timeoutTimer = setTimeout(() => {
+        if (!resolved) {
+          console.error(`CLIENT: Connection to ${ipToConnect} timed out (manual)`);
+          this.notifyStatus('Connection Timed Out');
+          try { this.client.destroy(); } catch (e) {}
+          reject(new Error('Connection timed out'));
+        }
+      }, 10000); // Increased to 10s for slow routers
+
       try {
         const socketId = 'client_main';
         this.buffers.set(socketId, '');
@@ -390,19 +408,31 @@ class SocketService {
           { 
             port: PORT, 
             host: ipToConnect,
-            timeout: 5000, // 5 second timeout
           },
           () => {
-            console.log(`CLIENT: Handshake successful with ${ipToConnect}`);
-            this.notifyStatus(`Connected to ${ipToConnect}`);
-            // Send registration
-            this.client.write(this.encode({
-              type: 'register',
-              payload: { deviceName, deviceId },
-            }));
-            resolve(ipToConnect);
+            console.log(`CLIENT: createConnection callback triggered for ${ipToConnect}`);
           }
         );
+
+        this.client.on('connect', () => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutTimer);
+          console.log(`CLIENT: 'connect' event successful with ${ipToConnect}`);
+          this.notifyStatus(`Connected to ${ipToConnect}`);
+          
+          // Small delay before sending registration to ensure buffer is ready
+          setTimeout(() => {
+            if (this.client) {
+              this.client.write(this.encode({
+                type: 'register',
+                payload: { deviceName, deviceId },
+              }));
+            }
+          }, 100);
+          
+          resolve(ipToConnect);
+        });
 
         this.client.on('data', (rawData) => {
           const messages = this.processBuffer(socketId, rawData.toString());
@@ -412,6 +442,9 @@ class SocketService {
         });
 
         this.client.on('error', (error) => {
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutTimer);
           const msg = error.message || JSON.stringify(error);
           console.error(`CLIENT: Socket error with ${ipToConnect}:`, msg);
           this.notifyStatus(`Connection Error: ${msg}`);
@@ -419,7 +452,10 @@ class SocketService {
         });
 
         this.client.on('timeout', () => {
-          console.error(`CLIENT: Connection to ${ipToConnect} timed out`);
+          if (resolved) return;
+          resolved = true;
+          clearTimeout(timeoutTimer);
+          console.error(`CLIENT: Connection to ${ipToConnect} timed out (socket event)`);
           this.notifyStatus('Connection Timed Out');
           try { this.client.destroy(); } catch (e) {}
           reject(new Error('Connection timed out'));
@@ -427,11 +463,20 @@ class SocketService {
 
         this.client.on('close', () => {
           console.log(`CLIENT: Connection to ${ipToConnect} closed`);
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeoutTimer);
+            reject(new Error('Connection closed prematurely'));
+          }
           this.notifyStatus('Disconnected from server');
           this.notifyUserList([]);
         });
       } catch (err) {
-        reject(err);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutTimer);
+          reject(err);
+        }
       }
     });
   }
@@ -554,84 +599,100 @@ class SocketService {
     const ip = await this.getIpAddress();
     const gateway = await this.getGatewayIp();
 
-    // 1. ALWAYS check the Gateway first (especially for Hotspots)
+    // Cleanup any leftover scan sockets
+    this.scanSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+    this.scanSockets = [];
+
+    const subnet = await this.getSubnetBase(ip);
+    if (!subnet) {
+      this.notifyStatus('Cannot determine subnet');
+      return found;
+    }
+
+    console.log(`SCAN: My IP=${ip}, Gateway=${gateway}`);
+
+    // 1. Check Gateway first — on hotspot, the gateway IS the host phone
     if (gateway && gateway !== '0.0.0.0' && gateway !== ip) {
       console.log(`SCAN: Checking Gateway ${gateway} first...`);
-      const res = await this.checkIp(gateway);
+      this.notifyStatus(`Checking gateway ${gateway}...`);
+      const res = await this.checkIp(gateway, 5000);
       if (res) {
         console.log(`SCAN: Found host at Gateway ${gateway}!`);
         found.push(res);
         this.notifyStatus('Found host via Gateway');
+        // Cleanup
+        this.scanSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+        this.scanSockets = [];
         return found;
       }
     }
 
-    const subnets = new Set();
-    if (ip && ip !== '0.0.0.0') subnets.add(await this.getSubnetBase(ip));
-    if (gateway && gateway !== '0.0.0.0') subnets.add(await this.getSubnetBase(gateway));
-    
-    // Subnet 3: Common Hotspot Subnet
-    subnets.add('192.168.43');
-
-    this.notifyStatus(`Scanning ${subnets.size} subnets...`);
-
-    for (const subnet of subnets) {
-      console.log(`Scanning subnet: ${subnet}.x`);
-      const promises = [];
-      for (let i = 1; i <= 254; i++) {
-        const ip = `${subnet}.${i}`;
-        promises.push(this.checkIp(ip));
-      }
-
-      // Scan in batches
-      const batchSize = 60;
-      for (let i = 0; i < promises.length; i += batchSize) {
-        const results = await Promise.all(promises.slice(i, i + batchSize));
-        results.forEach(res => {
-          if (res) found.push(res);
-        });
-        
-        // Optimization: If we found a host in this batch, we can stop scanning other subnets/batches
-        if (found.length > 0) break;
-      }
+    // PHASE 1: Check priority IPs ONE AT A TIME (1-20) with long timeout
+    // This is slow but 100% reliable on routers
+    this.notifyStatus('Scanning priority IPs...');
+    for (let i = 1; i <= 20; i++) {
+      const addr = `${subnet}.${i}`;
+      if (addr === ip || addr === gateway) continue;
       
+      console.log(`SCAN: Checking ${addr}...`);
+      const res = await this.checkIp(addr, 5000); // 5s timeout per IP
+      if (res) {
+        found.push(res);
+        console.log(`SCAN: Found host at ${addr}!`);
+        this.notifyStatus(`Found host: ${addr}`);
+        return found;
+      }
+    }
+
+    // PHASE 2: Check remaining IPs in small batches
+    this.notifyStatus('Scanning remaining IPs...');
+    for (let i = 21; i <= 254; i += 5) {
+      const batch = [];
+      for (let j = i; j < Math.min(i + 5, 255); j++) {
+        const addr = `${subnet}.${j}`;
+        if (addr !== ip) batch.push(addr);
+      }
+      const results = await Promise.all(batch.map(a => this.checkIp(a, 3000)));
+      results.forEach(res => { if (res) found.push(res); });
       if (found.length > 0) break;
     }
+
+    // Cleanup
+    this.scanSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+    this.scanSockets = [];
 
     this.notifyStatus(found.length > 0 ? `Found ${found.length} host(s)` : 'No hosts found');
     return found;
   }
 
-  checkIp(ip) {
+  checkIp(ip, timeout = SCAN_TIMEOUT) {
     return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        if (sock) { try { sock.destroy(); } catch (e) {} }
-        resolve(null);
-      }, SCAN_TIMEOUT);
+      let settled = false;
+
+      const done = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.scanSockets = this.scanSockets.filter(s => s !== sock);
+        if (sock) { try { sock.destroy(); } catch(e) {} }
+        resolve(result);
+      };
+
+      const timer = setTimeout(() => done(null), timeout);
 
       let sock;
       try {
         sock = TcpSocket.createConnection(
-          { port: PORT, host: ip, timeout: SCAN_TIMEOUT },
+          { port: PORT, host: ip },
           () => {
-            clearTimeout(timer);
             console.log(`SCAN: Found host at ${ip}`);
-            const hostInfo = { ip, port: PORT };
-            // Don't destroy immediately, wait a bit for the socket to be stable? 
-            // Actually destroy is fine for discovery
-            try { sock.destroy(); } catch (e) {}
-            resolve(hostInfo);
+            done({ ip, port: PORT });
           }
         );
-
-        sock.on('error', () => {
-          clearTimeout(timer);
-          if (sock) { try { sock.destroy(); } catch (e) {} }
-          resolve(null);
-        });
+        this.scanSockets.push(sock);
+        sock.on('error', () => done(null));
       } catch (e) {
-        clearTimeout(timer);
-        resolve(null);
+        done(null);
       }
     });
   }
@@ -685,6 +746,12 @@ class SocketService {
       try { this.server.close(); } catch (e) {}
       this.server = null;
     }
+
+    // NEW: Cleanup any pending scan sockets
+    this.scanSockets.forEach(s => {
+      try { s.destroy(); } catch (e) {}
+    });
+    this.scanSockets = [];
 
     this.clients = [];
     this.connectedUsers = [];

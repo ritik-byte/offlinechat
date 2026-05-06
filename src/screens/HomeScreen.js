@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Wifi, Users, Search, ArrowRight, Settings } from 'lucide-react-native';
+import { Shield, Users, Search, ArrowRight, Wifi, Radio } from 'lucide-react-native';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { colors, getInitials, getAvatarColor } from '../theme/colors';
 import SocketService from '../services/SocketService';
@@ -47,6 +47,7 @@ export default function HomeScreen({ navigation }) {
   const handleHost = async () => {
     setLoading(true);
     setError(null);
+    SocketService.disconnect(); // Clean up first
     try {
       const ip = await SocketService.startServer(deviceName, deviceId);
       navigation.navigate('Contacts', { mode: 'host', hostIp: ip });
@@ -58,6 +59,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   const handleJoin = () => {
+    SocketService.disconnect(); // Clean up first
     setShowJoinOptions(true);
     handleScan();
   };
@@ -79,11 +81,14 @@ export default function HomeScreen({ navigation }) {
   const connectToHost = async (hostIp) => {
     setLoading(true);
     setError(null);
+    // Give the OS/router time to cleanup scan sockets before real connection
+    await new Promise(resolve => setTimeout(resolve, 1500));
     try {
       await SocketService.connectToServer(hostIp, deviceName, deviceId);
       navigation.navigate('Contacts', { mode: 'client', hostIp });
     } catch (err) {
-      setError('Failed to connect. Make sure you\'re on the host\'s Wi-Fi network.');
+      console.error('Connection failed:', err);
+      setError(`Failed to connect to ${hostIp}. Ensure the host is active and try again.`);
     } finally {
       setLoading(false);
     }
@@ -125,7 +130,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.greeting}>Welcome back,</Text>
+            <Text style={styles.greeting}>Soldier,</Text>
             <Text style={styles.userName}>{deviceName}</Text>
           </View>
         </View>
@@ -134,10 +139,11 @@ export default function HomeScreen({ navigation }) {
       {/* Logo */}
       <Animated.View entering={FadeInDown.duration(800).delay(100)} style={styles.logoArea}>
         <View style={styles.logoCircle}>
-          <Wifi color={colors.primary} size={36} />
+          <Shield color="#4ADE80" size={36} />
         </View>
-        <Text style={styles.title}>NexusChat</Text>
-        <Text style={styles.subtitle}>Offline Communication System</Text>
+        <Text style={styles.title}>14 CHATS</Text>
+        <Text style={styles.slogan}>⚔ EK AUR CHAR ⚔</Text>
+        <Text style={styles.subtitle}>Tactical Comms Network</Text>
         <View style={styles.ipContainer}>
           <Text style={styles.ipText}>IP: {currentIp}</Text>
         </View>
@@ -152,7 +158,7 @@ export default function HomeScreen({ navigation }) {
 
         {loading ? (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <ActivityIndicator size="large" color="#4ADE80" />
             <Text style={styles.loaderText}>Connecting...</Text>
           </View>
         ) : !showJoinOptions ? (
@@ -161,11 +167,11 @@ export default function HomeScreen({ navigation }) {
             <TouchableOpacity style={styles.card} onPress={handleHost} activeOpacity={0.8}>
               <View style={styles.cardRow}>
                 <View style={styles.cardIconBox}>
-                  <Wifi color={colors.background} size={24} />
+                  <Radio color={colors.background} size={24} />
                 </View>
                 <View style={styles.cardContent}>
-                  <Text style={styles.cardTitle}>Host Network</Text>
-                  <Text style={styles.cardDesc}>Create a chat room on your hotspot</Text>
+                  <Text style={styles.cardTitle}>Deploy Command Post</Text>
+                  <Text style={styles.cardDesc}>Establish tactical comm channel</Text>
                 </View>
                 <ArrowRight color={colors.background} size={20} />
               </View>
@@ -178,12 +184,19 @@ export default function HomeScreen({ navigation }) {
                   <Users color={colors.primary} size={24} />
                 </View>
                 <View style={styles.cardContent}>
-                  <Text style={[styles.cardTitle, styles.textPrimary]}>Join Network</Text>
-                  <Text style={styles.cardDescLight}>Connect to a host's hotspot</Text>
+                  <Text style={[styles.cardTitle, styles.textPrimary]}>Join Operations</Text>
+                  <Text style={styles.cardDescLight}>Connect to an active command post</Text>
                 </View>
                 <ArrowRight color={colors.primary} size={20} />
               </View>
             </TouchableOpacity>
+            {/* Tips */}
+            <View style={styles.tipsContainer}>
+              <Text style={styles.tipsTitle}>⚡ Comms Intel</Text>
+              <Text style={styles.tipsText}>
+                Connect all devices to the same network (hotspot or router). One soldier deploys the command post, others join operations.
+              </Text>
+            </View>
           </Animated.View>
         ) : (
           /* Join Options - Scan Results */
@@ -214,7 +227,7 @@ export default function HomeScreen({ navigation }) {
 
               {scanning ? (
                 <View style={styles.scanLoader}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <ActivityIndicator size="small" color="#4ADE80" />
                   <Text style={styles.scanText}>Scanning local network...</Text>
                 </View>
               ) : foundHosts.length > 0 ? (
@@ -268,6 +281,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   userRow: {
     flexDirection: 'row',
@@ -277,77 +292,99 @@ const styles = StyleSheet.create({
   avatar: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   userInfo: {
     flex: 1,
   },
   greeting: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: colors.textMuted,
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
   },
   userName: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
     color: colors.text,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   logoArea: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 24,
+    marginTop: 24,
+    marginBottom: 28,
   },
   logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primaryMuted,
+    width: 70,
+    height: 70,
+    borderRadius: 4,
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    marginBottom: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-    letterSpacing: 0.5,
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 6,
+    fontFamily: 'monospace',
   },
   subtitle: {
+    fontSize: 10,
+    color: colors.textMuted,
+    marginTop: 6,
+    letterSpacing: 4,
+    fontFamily: 'monospace',
+    textTransform: 'uppercase',
+  },
+  slogan: {
     fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 4,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: 8,
+    letterSpacing: 6,
+    fontFamily: 'monospace',
   },
   ipContainer: {
-    marginTop: 12,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 20,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 2,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#333',
   },
   ipText: {
-    fontSize: 11,
+    fontSize: 10,
     color: colors.textMuted,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    letterSpacing: 3,
+    fontFamily: 'monospace',
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
   },
   errorContainer: {
-    backgroundColor: 'rgba(255, 51, 102, 0.1)',
+    backgroundColor: 'rgba(255,51,51,0.05)',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 2,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.error,
@@ -355,7 +392,9 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.error,
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   loaderContainer: {
     alignItems: 'center',
@@ -363,28 +402,28 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loaderText: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: '#666',
+    fontSize: 12,
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
   },
   cardsContainer: {
-    gap: 16,
+    gap: 14,
   },
   card: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
     padding: 20,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   cardOutline: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
+    backgroundColor: 'transparent',
+    borderRadius: 2,
     padding: 20,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: '#333',
   },
   cardRow: {
     flexDirection: 'row',
@@ -394,71 +433,86 @@ const styles = StyleSheet.create({
   cardIconBox: {
     width: 48,
     height: 48,
-    borderRadius: 14,
+    borderRadius: 2,
     backgroundColor: 'rgba(0,0,0,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   cardIconOutline: {
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: '#333',
   },
   cardContent: {
     flex: 1,
   },
   cardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.background,
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#000000',
     marginBottom: 3,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   cardDesc: {
-    fontSize: 13,
-    color: 'rgba(0,0,0,0.5)',
+    fontSize: 10,
+    color: 'rgba(0,0,0,0.4)',
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   cardDescLight: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: colors.textMuted,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   textPrimary: {
-    color: colors.primary,
+    color: '#FFFFFF',
   },
-  // ─── Join Options ───
-  joinSection: {
-    gap: 16,
-  },
+  joinSection: { gap: 14 },
   joinHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   joinTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
   },
   cancelText: {
     color: colors.error,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   autoConnectBtn: {
-    backgroundColor: colors.primaryMuted,
-    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderRadius: 2,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: '#FFFFFF',
   },
   autoConnectText: {
-    color: colors.primary,
-    fontSize: 15,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   scanSection: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 2,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -470,15 +524,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   scanLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
     marginBottom: 8,
+    fontFamily: 'monospace',
+    letterSpacing: 3,
   },
   scanBtn: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   scanLoader: {
     flexDirection: 'row',
@@ -487,8 +545,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   scanText: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: '#666',
+    fontSize: 11,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   hostItem: {
     flexDirection: 'row',
@@ -496,29 +556,32 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.border,
   },
   hostDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.online,
+    width: 6,
+    height: 6,
+    borderRadius: 1,
+    backgroundColor: '#FFFFFF',
   },
   hostIp: {
     flex: 1,
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '500',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   noHostsText: {
     color: colors.textMuted,
-    fontSize: 13,
+    fontSize: 11,
     textAlign: 'center',
     paddingVertical: 12,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
   },
   manualSection: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 2,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
@@ -529,21 +592,46 @@ const styles = StyleSheet.create({
   },
   manualInput: {
     flex: 1,
-    backgroundColor: colors.background,
-    color: colors.text,
-    borderRadius: 10,
+    backgroundColor: '#000',
+    color: '#FFF',
+    borderRadius: 2,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 15,
+    fontSize: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#333',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
   },
   manualBtn: {
     width: 48,
     height: 48,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  tipsContainer: {
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#222',
+  },
+  tipsTitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#555',
+    marginBottom: 4,
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+  },
+  tipsText: {
+    fontSize: 10,
+    color: '#333',
+    lineHeight: 16,
+    fontFamily: 'monospace',
+    letterSpacing: 1,
+  },
 });
+

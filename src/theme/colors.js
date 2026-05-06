@@ -1,29 +1,31 @@
 export const colors = {
-  background: '#0D0E15',      // Deep Space Blue
-  surface: '#1A1C29',         // Lighter Deep Space
-  surfaceLight: '#232636',    // Even lighter surface
-  primary: '#00F0FF',         // Neon Cyan
-  primaryDark: '#00B8C4',     // Darker Cyan
-  primaryMuted: 'rgba(0, 240, 255, 0.1)', // Subtle primary bg
+  background: '#000000',      // Pure Black
+  surface: '#0A0A0A',         // Near Black
+  surfaceLight: '#141414',    // Slightly lighter
+  primary: '#FFFFFF',         // Pure White
+  primaryDark: '#E0E0E0',     // Off-white
+  primaryMuted: 'rgba(255, 255, 255, 0.06)',
+  accent: '#FFFFFF',          // White accent
+  accentMuted: 'rgba(255, 255, 255, 0.04)',
   text: '#FFFFFF',            // White
-  textSecondary: '#A0A4B8',   // Slate Gray
-  textMuted: '#6B6F85',       // Muted text
-  border: '#2A2D40',          // Subtle Border
-  divider: '#1E2033',         // List separator
-  error: '#FF3366',           // Neon Pink/Red
-  success: '#00FF9D',         // Neon Green
-  online: '#00FF9D',          // Green dot for online
-  offline: '#6B6F85',         // Gray for offline
-  unreadBadge: '#FF3366',     // Notification badge
-  searchBar: '#1E2033',       // Search input bg
-  messageMe: '#004A52',       // Outgoing message (tinted cyan)
-  messageThem: '#1A1C29',     // Incoming message (surface)
-  messageMeAlt: '#005F6A',    // Alt outgoing
+  textSecondary: '#999999',   // Gray
+  textMuted: '#444444',       // Dark gray
+  border: '#1A1A1A',          // Subtle border
+  divider: '#111111',         // List separator
+  error: '#FF3333',           // Red alert
+  success: '#FFFFFF',         // White
+  online: '#4ADE80',          // Green dot for online
+  offline: '#333333',         // Dark gray
+  unreadBadge: '#FFFFFF',     // White badge
+  searchBar: '#0F0F0F',       // Search input bg
+  messageMe: '#1A1A1A',       // Outgoing message
+  messageThem: '#0A0A0A',     // Incoming message
+  messageMeAlt: '#1F1F1F',    // Alt outgoing
   avatarColors: [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
-    '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F',
-    '#BB8FCE', '#85C1E9', '#F1948A', '#82E0AA',
-    '#F8C471', '#AED6F1', '#D2B4DE', '#A3E4D7',
+    '#FFFFFF', '#CCCCCC', '#999999', '#FFFFFF',
+    '#E0E0E0', '#BBBBBB', '#FFFFFF', '#CCCCCC',
+    '#999999', '#FFFFFF', '#E0E0E0', '#BBBBBB',
+    '#FFFFFF', '#CCCCCC', '#999999', '#E0E0E0',
   ],
 };
 

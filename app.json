@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "offlinechat",
+    "name": "14 Grenadiers",
     "slug": "offlinechat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/chaticon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0F0A"
     },
     "ios": {
       "supportsTablet": true
@@ -18,7 +18,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/chaticon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0A0F0A"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.army001.offlinechat"
