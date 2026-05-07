@@ -241,9 +241,16 @@ export default function ChatScreen({ navigation, route }) {
             ]}
           >
             {showSenderName && (
-              <Text style={[styles.messageSender, { color: senderColor }]}>
-                {item.senderName}
-              </Text>
+              <View style={{ marginBottom: 4 }}>
+                {item.senderRank && (
+                  <Text style={{ fontSize: 8, color: '#555', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+                    {item.senderRank}
+                  </Text>
+                )}
+                <Text style={[styles.messageSender, { color: senderColor, marginBottom: 0 }]}>
+                  {item.senderName}
+                </Text>
+              </View>
             )}
 
             {item.replyTo && (
@@ -309,6 +316,11 @@ export default function ChatScreen({ navigation, route }) {
         </View>
 
         <View style={styles.headerInfo}>
+          {!isGroup && route.params?.deviceRank && (
+            <Text style={{ fontSize: 9, color: '#666', fontFamily: 'monospace', textTransform: 'uppercase' }}>
+              {route.params.deviceRank}
+            </Text>
+          )}
           <Text style={styles.headerTitle} numberOfLines={1}>{peerName}</Text>
           <View style={styles.headerSubRow}>
             {typingUser ? (

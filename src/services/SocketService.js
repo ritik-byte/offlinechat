@@ -22,6 +22,7 @@ class SocketService {
     this.clients = [];           // Server: array of { socket, deviceId, deviceName, ip }
     this.isHost = false;
     this.deviceName = '';
+    this.deviceRank = '';
     this.deviceId = '';
 
     // Listeners
@@ -158,7 +159,8 @@ class SocketService {
     
     this.isHost = true;
     this.deviceName = deviceName;
-    this.deviceId = deviceId;
+    this.deviceRank = arguments[2] || 'Soldier'; // Accept rank as 3rd arg
+    this.deviceId = arguments[1]; // Correct indexing if needed, but let's be explicit
     const ip = await this.getIpAddress();
     this.myIp = ip; // Store own IP
 
@@ -245,6 +247,7 @@ class SocketService {
             socketId,
             deviceId: payload.deviceId,
             deviceName: payload.deviceName,
+            deviceRank: payload.deviceRank || 'Soldier',
             ip: socket.remoteAddress,
           });
         }
@@ -340,6 +343,7 @@ class SocketService {
       {
         deviceId: this.deviceId,
         deviceName: this.deviceName,
+        deviceRank: this.deviceRank,
         isHost: true,
         online: true,
       },
@@ -347,6 +351,7 @@ class SocketService {
       ...this.clients.map(c => ({
         deviceId: c.deviceId,
         deviceName: c.deviceName,
+        deviceRank: c.deviceRank,
         isHost: false,
         online: true,
       })),
@@ -367,9 +372,10 @@ class SocketService {
 
   // ─── CLIENT (JOIN) ────────────────────────────────────────
 
-  async connectToServer(hostIp = null, deviceName, deviceId) {
+  async connectToServer(hostIp = null, deviceName, deviceId, deviceRank = 'Soldier') {
     this.isHost = false;
     this.deviceName = deviceName;
+    this.deviceRank = deviceRank;
     this.deviceId = deviceId;
 
     let ipToConnect = hostIp;
@@ -426,7 +432,7 @@ class SocketService {
             if (this.client) {
               this.client.write(this.encode({
                 type: 'register',
-                payload: { deviceName, deviceId },
+                payload: { deviceName, deviceId, deviceRank },
               }));
             }
           }, 100);
@@ -527,6 +533,7 @@ class SocketService {
       replyTo, // { id, senderName, text }
       senderId: this.deviceId,
       senderName: this.deviceName,
+      senderRank: this.deviceRank,
       targetId,
       timestamp: new Date().toISOString(),
     };

@@ -2,9 +2,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEYS = {
   DEVICE_NAME: '@nexuschat_device_name',
+  DEVICE_RANK: '@nexuschat_device_rank',
   DEVICE_ID: '@nexuschat_device_id',
+  ACCESS_GRANTED: '@nexuschat_access_granted',
   CHAT_HISTORY: '@nexuschat_chat_',
   CONTACTS: '@nexuschat_contacts',
+};
+
+
+const _ENCRYPTED_KEY = 'UkFNMjIxNDA1'; 
+
+
+const _tacticalDecode = (encoded) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = '';
+  for (let i = 0, e = 0; i < encoded.length; i += 4) {
+    let e1 = chars.indexOf(encoded.charAt(i));
+    let e2 = chars.indexOf(encoded.charAt(i + 1));
+    let e3 = chars.indexOf(encoded.charAt(i + 2));
+    let e4 = chars.indexOf(encoded.charAt(i + 3));
+    let c1 = (e1 << 2) | (e2 >> 4);
+    let c2 = ((e2 & 15) << 4) | (e3 >> 2);
+    let c3 = ((e3 & 3) << 6) | e4;
+    str += String.fromCharCode(c1);
+    if (e3 !== 64) str += String.fromCharCode(c2);
+    if (e4 !== 64) str += String.fromCharCode(c3);
+  }
+  return str;
 };
 
 class StorageService {
@@ -30,6 +54,20 @@ class StorageService {
    */
   async setDeviceName(name) {
     await AsyncStorage.setItem(KEYS.DEVICE_NAME, name.trim());
+  }
+
+  /**
+   * Get saved device rank
+   */
+  async getDeviceRank() {
+    return await AsyncStorage.getItem(KEYS.DEVICE_RANK) || 'Soldier';
+  }
+
+  /**
+   * Save device rank
+   */
+  async setDeviceRank(rank) {
+    await AsyncStorage.setItem(KEYS.DEVICE_RANK, rank);
   }
 
   /**
@@ -125,6 +163,35 @@ class StorageService {
     } catch (error) {
       console.error('Error loading contacts:', error);
       return [];
+    }
+  }
+
+  // ─── Access Control ───────────────────────────────────────
+
+  /**
+   * Check if access key has been entered successfully
+   */
+  async isAccessGranted() {
+    const granted = await AsyncStorage.getItem(KEYS.ACCESS_GRANTED);
+    return granted === 'true';
+  }
+
+  /**
+   * Save access grant status
+   */
+  async setAccessGranted() {
+    await AsyncStorage.setItem(KEYS.ACCESS_GRANTED, 'true');
+  }
+
+  /**
+   * Verify a key against the master key
+   */
+  verifyKey(key) {
+    try {
+      const decoded = _tacticalDecode(_ENCRYPTED_KEY);
+      return key === decoded;
+    } catch (e) {
+      return false;
     }
   }
 

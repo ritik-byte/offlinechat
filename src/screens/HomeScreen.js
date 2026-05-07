@@ -20,6 +20,7 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deviceName, setDeviceName] = useState('');
+  const [deviceRank, setDeviceRank] = useState('');
   const [deviceId, setDeviceId] = useState('');
   const [scanning, setScanning] = useState(false);
   const [foundHosts, setFoundHosts] = useState([]);
@@ -34,8 +35,10 @@ export default function HomeScreen({ navigation }) {
 
   const loadDeviceInfo = async () => {
     const name = await StorageService.getDeviceName();
+    const rank = await StorageService.getDeviceRank();
     const id = await StorageService.getDeviceId();
     setDeviceName(name || 'User');
+    setDeviceRank(rank || 'Soldier');
     setDeviceId(id);
   };
 
@@ -49,7 +52,7 @@ export default function HomeScreen({ navigation }) {
     setError(null);
     SocketService.disconnect(); // Clean up first
     try {
-      const ip = await SocketService.startServer(deviceName, deviceId);
+      const ip = await SocketService.startServer(deviceName, deviceId, deviceRank);
       navigation.navigate('Contacts', { mode: 'host', hostIp: ip });
     } catch (err) {
       setError('Failed to start server. Make sure hotspot is active and try again.');
@@ -84,7 +87,7 @@ export default function HomeScreen({ navigation }) {
     // Give the OS/router time to cleanup scan sockets before real connection
     await new Promise(resolve => setTimeout(resolve, 1500));
     try {
-      await SocketService.connectToServer(hostIp, deviceName, deviceId);
+      await SocketService.connectToServer(hostIp, deviceName, deviceId, deviceRank);
       navigation.navigate('Contacts', { mode: 'client', hostIp });
     } catch (err) {
       console.error('Connection failed:', err);
@@ -107,7 +110,7 @@ export default function HomeScreen({ navigation }) {
     setLoading(true);
     setError(null);
     try {
-      await SocketService.connectToServer(null, deviceName, deviceId);
+      await SocketService.connectToServer(null, deviceName, deviceId, deviceRank);
       navigation.navigate('Contacts', { mode: 'client' });
     } catch (err) {
       setError('Failed to auto-connect. Try scanning or entering IP manually.');
@@ -130,7 +133,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <View style={styles.userInfo}>
-            <Text style={styles.greeting}>Soldier,</Text>
+            <Text style={styles.greeting}>{deviceRank},</Text>
             <Text style={styles.userName}>{deviceName}</Text>
           </View>
         </View>

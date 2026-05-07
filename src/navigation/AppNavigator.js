@@ -3,6 +3,7 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SetupScreen from '../screens/SetupScreen';
+import AccessScreen from '../screens/AccessScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ContactsScreen from '../screens/ContactsScreen';
 import ChatScreen from '../screens/ChatScreen';
@@ -21,10 +22,15 @@ export default function AppNavigator() {
 
   const checkFirstLaunch = async () => {
     try {
-      const isFirst = await StorageService.isFirstLaunch();
-      setInitialRoute(isFirst ? 'Setup' : 'Home');
+      const accessGranted = await StorageService.isAccessGranted();
+      if (!accessGranted) {
+        setInitialRoute('Access');
+      } else {
+        const isFirst = await StorageService.isFirstLaunch();
+        setInitialRoute(isFirst ? 'Setup' : 'Home');
+      }
     } catch (e) {
-      setInitialRoute('Setup');
+      setInitialRoute('Access');
     } finally {
       setLoading(false);
     }
@@ -48,6 +54,7 @@ export default function AppNavigator() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
+        <Stack.Screen name="Access" component={AccessScreen} />
         <Stack.Screen name="Setup" component={SetupScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Contacts" component={ContactsScreen} />

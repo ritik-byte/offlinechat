@@ -116,6 +116,7 @@ export default function ContactsScreen({ navigation, route }) {
     navigation.navigate('Chat', {
       peerId: user.deviceId,
       peerName: user.deviceName,
+      deviceRank: user.deviceRank,
       isGroup: user.isGroup || false,
       mode,
     });
@@ -170,9 +171,16 @@ export default function ContactsScreen({ navigation, route }) {
           {/* Info */}
           <View style={styles.contactInfo}>
             <View style={styles.contactTopRow}>
-              <Text style={styles.contactName} numberOfLines={1}>
-                {item.deviceName}
-              </Text>
+              <View style={{ flex: 1 }}>
+                {!isGroup && item.deviceRank && (
+                  <Text style={{ fontSize: 9, color: '#666', fontFamily: 'monospace', textTransform: 'uppercase', marginBottom: 2 }}>
+                    {item.deviceRank}
+                  </Text>
+                )}
+                <Text style={styles.contactName} numberOfLines={1}>
+                  {item.deviceName}
+                </Text>
+              </View>
               {lastMsg && (
                 <Text style={styles.contactTime}>
                   {formatTime(lastMsg.timestamp)}

@@ -11,15 +11,27 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowRight, User, Shield } from 'lucide-react-native';
+import { ArrowRight, User, Shield, ChevronDown } from 'lucide-react-native';
+import { Modal, FlatList } from 'react-native';
 import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import StorageService from '../services/StorageService';
 
 export default function SetupScreen({ navigation }) {
   const [name, setName] = useState('');
+  const [rank, setRank] = useState('Soldier');
+  const [customRank, setCustomRank] = useState('');
+  const [isCustomRank, setIsCustomRank] = useState(false);
+  const [showRankPicker, setShowRankPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const RANKS = [
+    'Soldier','Sepoy', 'Lance Naik', 'Naik', 'Havildar', 'Naib Subedar', 
+    'Subedar', 'Subedar Major', 'Lieutenant', 'Captain', 'Major', 
+    'Lieutenant Colonel', 'Colonel', 'Brigadier', 'Major General', 
+    'Lieutenant General', 'General', 'OTHER / CUSTOM...'
+  ];
   const pulseAnim = useRef(new RNAnimated.Value(1)).current;
 
   useEffect(() => {
@@ -57,6 +69,8 @@ export default function SetupScreen({ navigation }) {
     setError('');
     try {
       await StorageService.setDeviceName(trimmed);
+      const finalRank = isCustomRank ? (customRank.trim() || 'Soldier') : rank;
+      await StorageService.setDeviceRank(finalRank);
       await StorageService.getDeviceId(); // Generate device ID
       navigation.reset({
         index: 0,
@@ -100,20 +114,80 @@ export default function SetupScreen({ navigation }) {
           <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Cpt. Sharma, Alpha-7..."
-              placeholderTextColor={colors.textMuted}
+              placeholder="Callsign (e.g. ALPHA-1)"
+              placeholderTextColor="#333"
               value={name}
               onChangeText={(t) => {
                 setName(t);
                 if (error) setError('');
               }}
               autoFocus
-              maxLength={30}
+              maxLength={20}
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
             />
-            <Text style={styles.charCount}>{name.length}/30</Text>
+            <Text style={styles.charCount}>{name.length}/20</Text>
           </View>
+
+          <Text style={styles.inputLabel}>OFFICIAL RANK</Text>
+          <TouchableOpacity 
+            style={styles.rankPicker} 
+            onPress={() => setShowRankPicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.rankText}>{isCustomRank ? (customRank || 'ENTER CUSTOM...') : rank}</Text>
+            <ChevronDown color="#FFFFFF" size={20} />
+          </TouchableOpacity>
+
+          {isCustomRank && (
+            <Animated.View entering={FadeInDown} style={styles.inputWrapper}>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter custom rank..."
+                placeholderTextColor="#333"
+                value={customRank}
+                onChangeText={setCustomRank}
+                maxLength={20}
+              />
+            </Animated.View>
+          )}
+
+          <Modal visible={showRankPicker} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>OFFICIAL RANKS</Text>
+                <FlatList
+                  data={RANKS}
+                  keyExtractor={(item) => item}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity 
+                      style={[styles.rankItem, (isCustomRank ? item === 'OTHER / CUSTOM...' : rank === item) && styles.rankItemActive]}
+                      onPress={() => {
+                        if (item === 'OTHER / CUSTOM...') {
+                          setIsCustomRank(true);
+                        } else {
+                          setIsCustomRank(false);
+                          setRank(item);
+                        }
+                        setShowRankPicker(false);
+                      }}
+                    >
+                      <Text style={[styles.rankItemText, (isCustomRank ? item === 'OTHER / CUSTOM...' : rank === item) && styles.rankItemTextActive]}>
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  showsVerticalScrollIndicator={false}
+                />
+                <TouchableOpacity 
+                  style={styles.modalClose} 
+                  onPress={() => setShowRankPicker(false)}
+                >
+                  <Text style={styles.modalCloseText}>CANCEL</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
 
           {error ? (
             <Text style={styles.errorText}>{error}</Text>
@@ -122,7 +196,7 @@ export default function SetupScreen({ navigation }) {
           <TouchableOpacity
             style={[
               styles.submitButton,
-              !name.trim() && styles.submitButtonDisabled,
+              (!name.trim() || saving) && styles.submitButtonDisabled,
             ]}
             onPress={handleSubmit}
             disabled={saving || !name.trim()}
@@ -279,6 +353,90 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontFamily: 'monospace',
     letterSpacing: 1,
+  },
+  inputLabel: {
+    fontSize: 10,
+    color: '#555',
+    marginBottom: 8,
+    marginTop: 8,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    fontWeight: '900',
+  },
+  rankPicker: {
+    backgroundColor: '#000000',
+    borderRadius: 2,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#333',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  rankText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#0A0A0A',
+    borderWidth: 1,
+    borderColor: '#333',
+    maxHeight: '80%',
+    padding: 20,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+    letterSpacing: 4,
+    textAlign: 'center',
+    marginBottom: 20,
+    textTransform: 'uppercase',
+  },
+  rankItem: {
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#111',
+  },
+  rankItemActive: {
+    backgroundColor: '#111',
+  },
+  rankItemText: {
+    color: '#555',
+    fontSize: 13,
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+    textAlign: 'center',
+  },
+  rankItemTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
+  modalClose: {
+    marginTop: 20,
+    paddingVertical: 12,
+    backgroundColor: '#1A1A1A',
+  },
+  modalCloseText: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: 12,
+    fontFamily: 'monospace',
+    letterSpacing: 3,
+    fontWeight: '900',
   },
 });
 
