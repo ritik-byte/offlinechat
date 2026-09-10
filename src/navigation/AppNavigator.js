@@ -8,13 +8,14 @@ import HomeScreen from '../screens/HomeScreen';
 import ContactsScreen from '../screens/ContactsScreen';
 import ChatScreen from '../screens/ChatScreen';
 import StorageService from '../services/StorageService';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const [initialRoute, setInitialRoute] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { colors } = useTheme();
 
   useEffect(() => {
     checkFirstLaunch();
@@ -22,15 +23,10 @@ export default function AppNavigator() {
 
   const checkFirstLaunch = async () => {
     try {
-      const accessGranted = await StorageService.isAccessGranted();
-      if (!accessGranted) {
-        setInitialRoute('Access');
-      } else {
-        const isFirst = await StorageService.isFirstLaunch();
-        setInitialRoute(isFirst ? 'Setup' : 'Home');
-      }
+      const isFirst = await StorageService.isFirstLaunch();
+      setInitialRoute(isFirst ? 'Setup' : 'Home');
     } catch (e) {
-      setInitialRoute('Access');
+      setInitialRoute('Setup');
     } finally {
       setLoading(false);
     }
@@ -38,7 +34,7 @@ export default function AppNavigator() {
 
   if (loading) {
     return (
-      <View style={styles.loader}>
+      <View style={[styles.loader, { backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -54,11 +50,11 @@ export default function AppNavigator() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="Access" component={AccessScreen} />
         <Stack.Screen name="Setup" component={SetupScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Contacts" component={ContactsScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
+        <Stack.Screen name="Access" component={AccessScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -69,6 +65,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
 });

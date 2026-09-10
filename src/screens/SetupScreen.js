@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,51 +8,52 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Animated as RNAnimated,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowRight, User, Shield, ChevronDown } from 'lucide-react-native';
-import { Modal, FlatList } from 'react-native';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import { User, ArrowRight, Sun, Moon, Camera, Trash2 } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { useTheme } from '../theme/ThemeContext';
 import StorageService from '../services/StorageService';
 
 export default function SetupScreen({ navigation }) {
+  const { colors, isDark, toggleTheme, getAvatarColor, getInitials } = useTheme();
   const [name, setName] = useState('');
-  const [rank, setRank] = useState('Soldier');
-  const [customRank, setCustomRank] = useState('');
-  const [isCustomRank, setIsCustomRank] = useState(false);
-  const [showRankPicker, setShowRankPicker] = useState(false);
+  const [avatarImage, setAvatarImage] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const RANKS = [
-    'Soldier','Sepoy', 'Lance Naik', 'Naik', 'Havildar', 'Naib Subedar', 
-    'Subedar', 'Subedar Major', 'Lieutenant', 'Captain', 'Major', 
-    'Lieutenant Colonel', 'Colonel', 'Brigadier', 'Major General', 
-    'Lieutenant General', 'General', 'OTHER / CUSTOM...'
-  ];
-  const pulseAnim = useRef(new RNAnimated.Value(1)).current;
+  const avatarColor = getAvatarColor(name || 'User');
+  const initials = getInitials(name || '');
 
-  useEffect(() => {
-    // Subtle pulse animation on the icon
-    const pulse = RNAnimated.loop(
-      RNAnimated.sequence([
-        RNAnimated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        RNAnimated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, []);
+  const pickProfilePicture = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 140, height: 140 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
+        setAvatarImage(`data:image/jpeg;base64,${manipResult.base64}`);
+      }
+    } catch (err) {
+      console.error('Image picker error:', err);
+    }
+  };
+
+  const removeProfilePicture = () => {
+    setAvatarImage(null);
+  };
 
   const handleSubmit = async () => {
     const trimmed = name.trim();
@@ -69,153 +70,149 @@ export default function SetupScreen({ navigation }) {
     setError('');
     try {
       await StorageService.setDeviceName(trimmed);
-      const finalRank = isCustomRank ? (customRank.trim() || 'Soldier') : rank;
-      await StorageService.setDeviceRank(finalRank);
-      await StorageService.getDeviceId(); // Generate device ID
+      await StorageService.setDeviceRank('Active');
+      await StorageService.setAvatarColor(avatarColor);
+      await StorageService.setAvatarImage(avatarImage);
+      await StorageService.getDeviceId();
+      await StorageService.setAccessGranted();
+
       navigation.reset({
         index: 0,
         routes: [{ name: 'Home' }],
       });
     } catch (e) {
-      setError('Failed to save. Please try again.');
+      setError('Unable to save profile. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
+      />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
-      >
-        {/* Top Branding */}
-        <Animated.View entering={FadeInDown.duration(800)} style={styles.brandArea}>
-          <RNAnimated.View style={[styles.iconCircle, { transform: [{ scale: pulseAnim }] }]}>
-            <Shield color={colors.primary} size={40} />
-          </RNAnimated.View>
-          <Text style={styles.brandTitle}>14 GRENADIERS</Text>
-          <Text style={styles.brandTagline}>⚔ EK AUR CHAR ⚔</Text>
-        </Animated.View>
-
-        {/* Setup Form */}
-        <Animated.View entering={FadeInUp.duration(800).delay(400)} style={styles.formCard}>
-          <View style={styles.formHeader}>
-            <User color={colors.primary} size={24} />
-            <Text style={styles.formTitle}>Identify Yourself, Soldier</Text>
-          </View>
-          <Text style={styles.formSubtitle}>
-            Your callsign will be visible to other personnel on the network.
-            Set this once — it stays on your device.
-          </Text>
-
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.input}
-              placeholder="Callsign (e.g. ALPHA-1)"
-              placeholderTextColor="#333"
-              value={name}
-              onChangeText={(t) => {
-                setName(t);
-                if (error) setError('');
-              }}
-              autoFocus
-              maxLength={20}
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
-            />
-            <Text style={styles.charCount}>{name.length}/20</Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.innerContainer}
+        >
+          {/* Top Bar with Theme Toggle */}
+          <View style={styles.topBar}>
+            <View style={{ width: 36 }} />
+            <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Offnet Chat</Text>
+            <TouchableOpacity
+              style={[styles.themeToggle, { backgroundColor: colors.surfaceInput, borderColor: colors.border }]}
+              onPress={toggleTheme}
+              activeOpacity={0.7}
+            >
+              {isDark ? (
+                <Sun color={colors.warning} size={18} />
+              ) : (
+                <Moon color={colors.primary} size={18} />
+              )}
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.inputLabel}>OFFICIAL RANK</Text>
-          <TouchableOpacity 
-            style={styles.rankPicker} 
-            onPress={() => setShowRankPicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.rankText}>{isCustomRank ? (customRank || 'ENTER CUSTOM...') : rank}</Text>
-            <ChevronDown color="#FFFFFF" size={20} />
-          </TouchableOpacity>
+          {/* Form Content */}
+          <View style={styles.topSection}>
+            <Text style={[styles.screenHeading, { color: colors.textPrimary }]}>Create Your Profile</Text>
+            <Text style={[styles.screenDescription, { color: colors.textSecondary }]}>
+              Add a photo and choose your display name to start chatting with nearby devices.
+            </Text>
 
-          {isCustomRank && (
-            <Animated.View entering={FadeInDown} style={styles.inputWrapper}>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter custom rank..."
-                placeholderTextColor="#333"
-                value={customRank}
-                onChangeText={setCustomRank}
-                maxLength={20}
-              />
-            </Animated.View>
-          )}
+            {/* Profile Picture / Avatar */}
+            <View style={styles.avatarWrapper}>
+              <TouchableOpacity
+                onPress={pickProfilePicture}
+                activeOpacity={0.8}
+                style={[
+                  styles.avatarCircle,
+                  { backgroundColor: avatarColor, borderColor: colors.border },
+                ]}
+              >
+                {avatarImage ? (
+                  <Image source={{ uri: avatarImage }} style={styles.avatarPhoto} />
+                ) : initials !== '?' && initials.length > 0 ? (
+                  <Text style={styles.avatarText}>{initials}</Text>
+                ) : (
+                  <User color="#FFFFFF" size={44} strokeWidth={1.5} />
+                )}
 
-          <Modal visible={showRankPicker} transparent animationType="fade">
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>OFFICIAL RANKS</Text>
-                <FlatList
-                  data={RANKS}
-                  keyExtractor={(item) => item}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={[styles.rankItem, (isCustomRank ? item === 'OTHER / CUSTOM...' : rank === item) && styles.rankItemActive]}
-                      onPress={() => {
-                        if (item === 'OTHER / CUSTOM...') {
-                          setIsCustomRank(true);
-                        } else {
-                          setIsCustomRank(false);
-                          setRank(item);
-                        }
-                        setShowRankPicker(false);
-                      }}
-                    >
-                      <Text style={[styles.rankItemText, (isCustomRank ? item === 'OTHER / CUSTOM...' : rank === item) && styles.rankItemTextActive]}>
-                        {item}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  showsVerticalScrollIndicator={false}
-                />
-                <TouchableOpacity 
-                  style={styles.modalClose} 
-                  onPress={() => setShowRankPicker(false)}
-                >
-                  <Text style={styles.modalCloseText}>CANCEL</Text>
+                {/* Camera Badge */}
+                <View style={[styles.cameraBadge, { backgroundColor: colors.primary, borderColor: colors.background }]}>
+                  <Camera color="#FFFFFF" size={15} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Photo Action Links */}
+              <View style={styles.photoActionsRow}>
+                <TouchableOpacity onPress={pickProfilePicture} activeOpacity={0.7}>
+                  <Text style={[styles.photoActionText, { color: colors.primary }]}>
+                    {avatarImage ? 'Change Photo' : 'Add Photo'}
+                  </Text>
                 </TouchableOpacity>
+                {avatarImage && (
+                  <TouchableOpacity onPress={removeProfilePicture} activeOpacity={0.7} style={{ marginLeft: 12 }}>
+                    <Text style={[styles.photoActionText, { color: colors.error }]}>Remove</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
-          </Modal>
 
-          {error ? (
-            <Text style={styles.errorText}>{error}</Text>
-          ) : null}
+            {/* Input Card */}
+            <View style={[styles.inputCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>DISPLAY NAME</Text>
+              <TextInput
+                style={[styles.input, { color: colors.textPrimary, borderBottomColor: colors.border }]}
+                placeholder="e.g. Alex Morgan"
+                placeholderTextColor={colors.textMuted}
+                value={name}
+                onChangeText={(text) => {
+                  setName(text);
+                  if (error) setError('');
+                }}
+                autoFocus
+                autoCorrect={false}
+                maxLength={25}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
+              />
+              <View style={styles.inputFooter}>
+                {error ? (
+                  <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
+                ) : (
+                  <Text style={[styles.hintText, { color: colors.textMuted }]}>
+                    Visible to other devices on the network
+                  </Text>
+                )}
+                <Text style={[styles.counterText, { color: colors.textMuted }]}>{name.length}/25</Text>
+              </View>
+            </View>
+          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (!name.trim() || saving) && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={saving || !name.trim()}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.submitText}>
-              {saving ? 'Saving...' : 'Get Started'}
-            </Text>
-            {!saving && <ArrowRight color={colors.background} size={20} />}
-          </TouchableOpacity>
-        </Animated.View>
-
-        <Animated.View entering={FadeInUp.duration(800).delay(800)} style={styles.footer}>
-          <Text style={styles.footerText}>
-            Your identity is stored only on this device.{'\n'}
-            No internet required. Fully encrypted. 100% tactical.
-          </Text>
-        </Animated.View>
-      </KeyboardAvoidingView>
+          {/* Bottom Action Section */}
+          <View style={styles.bottomSection}>
+            <TouchableOpacity
+              style={[
+                styles.primaryButton,
+                { backgroundColor: colors.primary },
+                (!name.trim() || saving) && { backgroundColor: colors.surfaceElevated, opacity: 0.6 },
+              ]}
+              onPress={handleSubmit}
+              disabled={!name.trim() || saving}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.primaryButtonText}>
+                {saving ? 'Setting up...' : 'Get Started'}
+              </Text>
+              {!saving && <ArrowRight color="#FFFFFF" size={18} />}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -223,220 +220,145 @@ export default function SetupScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
   },
-  keyboardView: {
+  innerContainer: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: 24,
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-  brandArea: {
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 4,
   },
-  iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 4,
-    backgroundColor: 'transparent',
+  themeToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  screenTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  topSection: {
+    alignItems: 'center',
+  },
+  screenHeading: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  screenDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 320,
+    marginBottom: 24,
+  },
+  avatarWrapper: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  avatarCircle: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
-    marginBottom: 16,
+    position: 'relative',
+    overflow: 'visible',
   },
-  brandTitle: {
-    fontSize: 28,
-    fontWeight: '900',
+  avatarPhoto: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarText: {
     color: '#FFFFFF',
-    letterSpacing: 6,
-    fontFamily: 'monospace',
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
-  brandTagline: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    marginTop: 8,
-    letterSpacing: 6,
-    fontFamily: 'monospace',
+  cameraBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
   },
-  formCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 2,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#222',
-  },
-  formHeader: {
+  photoActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginTop: 10,
+  },
+  photoActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  inputCard: {
+    width: '100%',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.8,
     marginBottom: 8,
   },
-  formTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  formSubtitle: {
-    fontSize: 11,
-    color: '#555',
-    lineHeight: 18,
-    marginBottom: 20,
-    fontFamily: 'monospace',
-    letterSpacing: 1,
-  },
-  inputWrapper: {
-    position: 'relative',
-    marginBottom: 12,
-  },
   input: {
-    backgroundColor: '#000000',
-    color: '#FFFFFF',
-    fontSize: 16,
-    borderRadius: 2,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#333',
-    fontFamily: 'monospace',
-    letterSpacing: 2,
+    fontSize: 18,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
   },
-  charCount: {
-    position: 'absolute',
-    right: 14,
-    bottom: 14,
-    fontSize: 10,
-    color: '#333',
-    fontFamily: 'monospace',
+  inputFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  hintText: {
+    fontSize: 12,
   },
   errorText: {
-    color: '#FF3333',
-    fontSize: 11,
-    marginBottom: 12,
-    marginLeft: 4,
-    fontFamily: 'monospace',
-    letterSpacing: 1,
+    fontSize: 12,
+    fontWeight: '500',
   },
-  submitButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-    paddingVertical: 16,
+  counterText: {
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
+  bottomSection: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  primaryButton: {
+    width: '100%',
+    height: 52,
+    borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
   },
-  submitButtonDisabled: {
-    backgroundColor: '#1A1A1A',
-  },
-  submitText: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '900',
-    fontFamily: 'monospace',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-  },
-  footer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  footerText: {
-    color: '#333',
-    fontSize: 10,
-    textAlign: 'center',
-    lineHeight: 16,
-    fontFamily: 'monospace',
-    letterSpacing: 1,
-  },
-  inputLabel: {
-    fontSize: 10,
-    color: '#555',
-    marginBottom: 8,
-    marginTop: 8,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-    fontWeight: '900',
-  },
-  rankPicker: {
-    backgroundColor: '#000000',
-    borderRadius: 2,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#333',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  rankText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.9)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    backgroundColor: '#0A0A0A',
-    borderWidth: 1,
-    borderColor: '#333',
-    maxHeight: '80%',
-    padding: 20,
-  },
-  modalTitle: {
+  primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '900',
-    fontFamily: 'monospace',
-    letterSpacing: 4,
-    textAlign: 'center',
-    marginBottom: 20,
-    textTransform: 'uppercase',
-  },
-  rankItem: {
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#111',
-  },
-  rankItemActive: {
-    backgroundColor: '#111',
-  },
-  rankItemText: {
-    color: '#555',
-    fontSize: 13,
-    fontFamily: 'monospace',
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  rankItemTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '900',
-  },
-  modalClose: {
-    marginTop: 20,
-    paddingVertical: 12,
-    backgroundColor: '#1A1A1A',
-  },
-  modalCloseText: {
-    color: '#FFFFFF',
-    textAlign: 'center',
-    fontSize: 12,
-    fontFamily: 'monospace',
-    letterSpacing: 3,
-    fontWeight: '900',
+    fontWeight: '600',
   },
 });
-

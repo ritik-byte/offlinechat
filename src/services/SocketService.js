@@ -24,12 +24,14 @@ class SocketService {
     this.deviceName = '';
     this.deviceRank = '';
     this.deviceId = '';
+    this.deviceAvatar = null;
 
     // Listeners
     this.messageListeners = [];
     this.statusListeners = [];
     this.userListListeners = [];
     this.typingListeners = [];
+    this.callListeners = [];
 
     // Connected users (client-side view)
     this.connectedUsers = [];
@@ -40,6 +42,10 @@ class SocketService {
     // Buffer for TCP message fragmentation
     this.buffers = new Map(); // socketId -> partial data string
     this.scanSockets = [];    // Track sockets during discovery
+  }
+
+  setAvatar(avatar) {
+    this.deviceAvatar = avatar;
   }
 
   // ─── Listener Management ──────────────────────────────────
@@ -56,6 +62,9 @@ class SocketService {
   addTypingListener(cb) { this.typingListeners.push(cb); }
   removeTypingListener(cb) { this.typingListeners = this.typingListeners.filter(l => l !== cb); }
 
+  addCallListener(cb) { this.callListeners.push(cb); }
+  removeCallListener(cb) { this.callListeners = this.callListeners.filter(l => l !== cb); }
+
   notifyStatus(status) {
     this.statusListeners.forEach(l => l(status));
   }
@@ -71,6 +80,10 @@ class SocketService {
 
   notifyTyping(data) {
     this.typingListeners.forEach(l => l(data));
+  }
+
+  notifyCallSignal(signal) {
+    this.callListeners.forEach(l => l(signal));
   }
 
   // ─── Network Helpers ──────────────────────────────────────
@@ -150,17 +163,18 @@ class SocketService {
 
   // ─── SERVER (HOST) ────────────────────────────────────────
 
-  async startServer(deviceName, deviceId, retryCount = 0) {
+  async startServer(deviceName, deviceId, deviceRank = 'Active', retryCount = 0, avatar = null) {
     // Force disconnect any previous instances to free up the port
     this.disconnect();
-    
+
     // Give the OS a moment to release the port
     await new Promise(resolve => setTimeout(resolve, retryCount > 0 ? 1000 : 300));
-    
+
     this.isHost = true;
     this.deviceName = deviceName;
-    this.deviceRank = arguments[2] || 'Soldier'; // Accept rank as 3rd arg
-    this.deviceId = arguments[1]; // Correct indexing if needed, but let's be explicit
+    this.deviceId = deviceId;
+    this.deviceRank = deviceRank || 'Active';
+    this.deviceAvatar = avatar || this.deviceAvatar || null;
     const ip = await this.getIpAddress();
     this.myIp = ip; // Store own IP
 
@@ -173,6 +187,10 @@ class SocketService {
           this.buffers.set(socketId, '');
 
           socket.on('data', (rawData) => {
+            const client = this.clients.find(c => c.socketId === socketId);
+            if (client) {
+              client.lastPong = Date.now();
+            }
             const messages = this.processBuffer(socketId, rawData.toString());
             messages.forEach(envelope => {
               this.handleServerMessage(envelope, socket, socketId);
@@ -200,11 +218,11 @@ class SocketService {
         this.server.on('error', (error) => {
           const msg = error.message || JSON.stringify(error);
           console.error('SERVER error:', msg);
-          
+
           if (msg.includes('EADDRINUSE') && retryCount < 3) {
             console.log(`SERVER: Port ${PORT} busy, retrying in 1s...`);
             this.server.close();
-            this.startServer(deviceName, deviceId, retryCount + 1).then(resolve).catch(reject);
+            this.startServer(deviceName, deviceId, deviceRank, retryCount + 1, avatar).then(resolve).catch(reject);
             return;
           }
 
@@ -241,14 +259,17 @@ class SocketService {
           existing.socket = socket;
           existing.socketId = socketId;
           existing.deviceName = payload.deviceName;
+          existing.avatar = payload.avatar || existing.avatar || null;
         } else {
           this.clients.push({
             socket,
             socketId,
             deviceId: payload.deviceId,
             deviceName: payload.deviceName,
-            deviceRank: payload.deviceRank || 'Soldier',
+            deviceRank: payload.deviceRank || 'Active',
+            avatar: payload.avatar || null,
             ip: socket.remoteAddress,
+            lastPong: Date.now(),
           });
         }
         this.notifyStatus(`${payload.deviceName} joined`);
@@ -263,7 +284,7 @@ class SocketService {
           this.notifyMessage(msg);
           this.clients.forEach(c => {
             if (c.deviceId !== msg.senderId) {
-              try { c.socket.write(this.encode(envelope)); } catch (e) {}
+              try { c.socket.write(this.encode(envelope)); } catch (e) { }
             }
           });
         } else if (msg.targetId === this.deviceId) {
@@ -273,7 +294,7 @@ class SocketService {
           // Route to specific client
           const target = this.clients.find(c => c.deviceId === msg.targetId);
           if (target) {
-            try { target.socket.write(this.encode(envelope)); } catch (e) {}
+            try { target.socket.write(this.encode(envelope)); } catch (e) { }
           }
           // Also echo back to sender for confirmation (if sender isn't host)
           if (msg.senderId !== this.deviceId) {
@@ -290,7 +311,7 @@ class SocketService {
           this.notifyTyping(payload);
           this.clients.forEach(c => {
             if (c.deviceId !== senderId) {
-              try { c.socket.write(this.encode(envelope)); } catch (e) {}
+              try { c.socket.write(this.encode(envelope)); } catch (e) { }
             }
           });
         } else if (targetId === this.deviceId) {
@@ -298,7 +319,32 @@ class SocketService {
         } else {
           const target = this.clients.find(c => c.deviceId === targetId);
           if (target) {
-            try { target.socket.write(this.encode(envelope)); } catch (e) {}
+            try { target.socket.write(this.encode(envelope)); } catch (e) { }
+          }
+        }
+        break;
+      }
+
+      case 'call_signal': {
+        const client = this.clients.find(c => c.socketId === socketId);
+        if (client) client.lastPong = Date.now();
+        const { targetId } = payload;
+        if (targetId === this.deviceId) {
+          // Addressed to host
+          this.notifyCallSignal(payload);
+        } else {
+          // Route to matching client
+          const target = this.clients.find(c => c.deviceId === targetId);
+          if (target) {
+            try { target.socket.write(this.encode(envelope)); } catch (e) { }
+          } else if (!targetId || targetId === 'general') {
+            // Target was not specified or was general: forward to other clients and host
+            this.clients.forEach(c => {
+              if (c.socketId !== socketId) {
+                try { c.socket.write(this.encode(envelope)); } catch (e) { }
+              }
+            });
+            this.notifyCallSignal(payload);
           }
         }
         break;
@@ -344,6 +390,7 @@ class SocketService {
         deviceId: this.deviceId,
         deviceName: this.deviceName,
         deviceRank: this.deviceRank,
+        avatar: this.deviceAvatar || null,
         isHost: true,
         online: true,
       },
@@ -352,6 +399,7 @@ class SocketService {
         deviceId: c.deviceId,
         deviceName: c.deviceName,
         deviceRank: c.deviceRank,
+        avatar: c.avatar || null,
         isHost: false,
         online: true,
       })),
@@ -363,7 +411,7 @@ class SocketService {
     });
 
     this.clients.forEach(c => {
-      try { c.socket.write(envelope); } catch (e) {}
+      try { c.socket.write(envelope); } catch (e) { }
     });
 
     // Also notify host's own UI
@@ -372,17 +420,18 @@ class SocketService {
 
   // ─── CLIENT (JOIN) ────────────────────────────────────────
 
-  async connectToServer(hostIp = null, deviceName, deviceId, deviceRank = 'Soldier') {
+  async connectToServer(hostIp = null, deviceName, deviceId, deviceRank = 'Active', avatar = null) {
     this.isHost = false;
     this.deviceName = deviceName;
     this.deviceRank = deviceRank;
     this.deviceId = deviceId;
+    this.deviceAvatar = avatar || this.deviceAvatar || null;
 
     let ipToConnect = hostIp;
     if (!ipToConnect) {
       const gateway = await this.getGatewayIp();
       const ip = await this.getIpAddress();
-      
+
       // Try gateway first
       if (gateway && gateway !== '0.0.0.0' && gateway !== ip) {
         ipToConnect = gateway;
@@ -394,12 +443,12 @@ class SocketService {
 
     return new Promise((resolve, reject) => {
       let resolved = false;
-      
+
       const timeoutTimer = setTimeout(() => {
         if (!resolved) {
           console.error(`CLIENT: Connection to ${ipToConnect} timed out (manual)`);
           this.notifyStatus('Connection Timed Out');
-          try { this.client.destroy(); } catch (e) {}
+          try { this.client.destroy(); } catch (e) { }
           reject(new Error('Connection timed out'));
         }
       }, 10000); // Increased to 10s for slow routers
@@ -407,12 +456,12 @@ class SocketService {
       try {
         const socketId = 'client_main';
         this.buffers.set(socketId, '');
-        
+
         console.log(`CLIENT: Attempting connection to ${ipToConnect}:${PORT}...`);
 
         this.client = TcpSocket.createConnection(
-          { 
-            port: PORT, 
+          {
+            port: PORT,
             host: ipToConnect,
           },
           () => {
@@ -426,17 +475,22 @@ class SocketService {
           clearTimeout(timeoutTimer);
           console.log(`CLIENT: 'connect' event successful with ${ipToConnect}`);
           this.notifyStatus(`Connected to ${ipToConnect}`);
-          
+
           // Small delay before sending registration to ensure buffer is ready
           setTimeout(() => {
             if (this.client) {
               this.client.write(this.encode({
                 type: 'register',
-                payload: { deviceName, deviceId, deviceRank },
+                payload: {
+                  deviceName,
+                  deviceId,
+                  deviceRank,
+                  avatar: this.deviceAvatar || null,
+                },
               }));
             }
           }, 100);
-          
+
           resolve(ipToConnect);
         });
 
@@ -463,7 +517,7 @@ class SocketService {
           clearTimeout(timeoutTimer);
           console.error(`CLIENT: Connection to ${ipToConnect} timed out (socket event)`);
           this.notifyStatus('Connection Timed Out');
-          try { this.client.destroy(); } catch (e) {}
+          try { this.client.destroy(); } catch (e) { }
           reject(new Error('Connection timed out'));
         });
 
@@ -506,12 +560,16 @@ class SocketService {
         this.notifyTyping(payload);
         break;
 
+      case 'call_signal':
+        this.notifyCallSignal(payload);
+        break;
+
       case 'ping':
         // Respond with pong
         if (this.client) {
           try {
             this.client.write(this.encode({ type: 'pong', payload: {} }));
-          } catch (e) {}
+          } catch (e) { }
         }
         break;
 
@@ -525,15 +583,18 @@ class SocketService {
   /**
    * Send a message to a specific user or 'general' for group chat
    */
-  sendMessage(text, targetId, image = null, replyTo = null) {
+  sendMessage(text, targetId, image = null, replyTo = null, audio = null, audioDuration = 0) {
     const messageObj = {
       id: `${this.deviceId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       text,
       image, // Base64 string
+      audio, // Base64 audio string or URI
+      audioDuration, // Audio duration in seconds
       replyTo, // { id, senderName, text }
       senderId: this.deviceId,
       senderName: this.deviceName,
       senderRank: this.deviceRank,
+      senderAvatar: this.deviceAvatar || null,
       targetId,
       timestamp: new Date().toISOString(),
     };
@@ -545,13 +606,13 @@ class SocketService {
       if (targetId === 'general') {
         // Send to all clients
         this.clients.forEach(c => {
-          try { c.socket.write(this.encode(envelope)); } catch (e) {}
+          try { c.socket.write(this.encode(envelope)); } catch (e) { }
         });
       } else {
         // Send to specific client
         const target = this.clients.find(c => c.deviceId === targetId);
         if (target) {
-          try { target.socket.write(this.encode(envelope)); } catch (e) {}
+          try { target.socket.write(this.encode(envelope)); } catch (e) { }
         }
       }
       // Notify own UI
@@ -564,6 +625,40 @@ class SocketService {
     }
 
     return messageObj;
+  }
+
+  /**
+   * Send real-time call signal (invite, accept, decline, end, audio_chunk)
+   */
+  sendCallSignal(signal) {
+    const envelope = {
+      type: 'call_signal',
+      payload: {
+        ...signal,
+        callerId: signal.callerId || this.deviceId,
+        callerName: signal.callerName || this.deviceName,
+        callerAvatar: signal.callerAvatar || this.deviceAvatar || null,
+        senderId: this.deviceId,
+        senderName: this.deviceName,
+        senderAvatar: this.deviceAvatar || null,
+        timestamp: Date.now(),
+      },
+    };
+
+    if (this.isHost) {
+      if (signal.targetId && signal.targetId !== 'general') {
+        const target = this.clients.find(c => c.deviceId === signal.targetId);
+        if (target) {
+          try { target.socket.write(this.encode(envelope)); } catch (e) { }
+        }
+      } else {
+        this.clients.forEach(c => {
+          try { c.socket.write(this.encode(envelope)); } catch (e) { }
+        });
+      }
+    } else if (this.client) {
+      try { this.client.write(this.encode(envelope)); } catch (e) { }
+    }
   }
 
   /**
@@ -582,12 +677,12 @@ class SocketService {
     if (this.isHost) {
       if (targetId === 'general') {
         this.clients.forEach(c => {
-          try { c.socket.write(this.encode(envelope)); } catch (e) {}
+          try { c.socket.write(this.encode(envelope)); } catch (e) { }
         });
       } else {
         const target = this.clients.find(c => c.deviceId === targetId);
         if (target) {
-          try { target.socket.write(this.encode(envelope)); } catch (e) {}
+          try { target.socket.write(this.encode(envelope)); } catch (e) { }
         }
       }
     } else if (this.client) {
@@ -607,7 +702,7 @@ class SocketService {
     const gateway = await this.getGatewayIp();
 
     // Cleanup any leftover scan sockets
-    this.scanSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+    this.scanSockets.forEach(s => { try { s.destroy(); } catch (e) { } });
     this.scanSockets = [];
 
     const subnet = await this.getSubnetBase(ip);
@@ -628,7 +723,7 @@ class SocketService {
         found.push(res);
         this.notifyStatus('Found host via Gateway');
         // Cleanup
-        this.scanSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+        this.scanSockets.forEach(s => { try { s.destroy(); } catch (e) { } });
         this.scanSockets = [];
         return found;
       }
@@ -640,7 +735,7 @@ class SocketService {
     for (let i = 1; i <= 20; i++) {
       const addr = `${subnet}.${i}`;
       if (addr === ip || addr === gateway) continue;
-      
+
       console.log(`SCAN: Checking ${addr}...`);
       const res = await this.checkIp(addr, 5000); // 5s timeout per IP
       if (res) {
@@ -665,7 +760,7 @@ class SocketService {
     }
 
     // Cleanup
-    this.scanSockets.forEach(s => { try { s.destroy(); } catch(e) {} });
+    this.scanSockets.forEach(s => { try { s.destroy(); } catch (e) { } });
     this.scanSockets = [];
 
     this.notifyStatus(found.length > 0 ? `Found ${found.length} host(s)` : 'No hosts found');
@@ -681,7 +776,7 @@ class SocketService {
         settled = true;
         clearTimeout(timer);
         this.scanSockets = this.scanSockets.filter(s => s !== sock);
-        if (sock) { try { sock.destroy(); } catch(e) {} }
+        if (sock) { try { sock.destroy(); } catch (e) { } }
         resolve(result);
       };
 
@@ -714,13 +809,13 @@ class SocketService {
       // Send ping to all clients
       const pingEnvelope = this.encode({ type: 'ping', payload: {} });
       this.clients.forEach(c => {
-        try { c.socket.write(pingEnvelope); } catch (e) {}
+        try { c.socket.write(pingEnvelope); } catch (e) { }
       });
 
-      // Remove clients that haven't responded in 15 seconds
-      const stale = this.clients.filter(c => c.lastPong && (now - c.lastPong) > 15000);
+      // Remove clients that haven't sent any data or responded to heartbeat in 60 seconds
+      const stale = this.clients.filter(c => c.lastPong && (now - c.lastPong) > 60000);
       stale.forEach(c => {
-        try { c.socket.destroy(); } catch (e) {}
+        try { c.socket.destroy(); } catch (e) { }
         this.removeClient(c.socketId);
       });
     }, HEARTBEAT_INTERVAL);
@@ -741,22 +836,22 @@ class SocketService {
     if (this.client) {
       try {
         this.client.write(this.encode({ type: 'disconnect', payload: {} }));
-      } catch (e) {}
-      try { this.client.destroy(); } catch (e) {}
+      } catch (e) { }
+      try { this.client.destroy(); } catch (e) { }
       this.client = null;
     }
 
     if (this.server) {
       this.clients.forEach(c => {
-        try { c.socket.destroy(); } catch (e) {}
+        try { c.socket.destroy(); } catch (e) { }
       });
-      try { this.server.close(); } catch (e) {}
+      try { this.server.close(); } catch (e) { }
       this.server = null;
     }
 
     // NEW: Cleanup any pending scan sockets
     this.scanSockets.forEach(s => {
-      try { s.destroy(); } catch (e) {}
+      try { s.destroy(); } catch (e) { }
     });
     this.scanSockets = [];
 

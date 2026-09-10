@@ -2,72 +2,93 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEYS = {
   DEVICE_NAME: '@nexuschat_device_name',
-  DEVICE_RANK: '@nexuschat_device_rank',
+  DEVICE_RANK: '@nexuschat_device_rank', // Kept for protocol compatibility (stores user status / bio)
   DEVICE_ID: '@nexuschat_device_id',
+  DEVICE_AVATAR_COLOR: '@nexuschat_device_avatar_color',
+  DEVICE_AVATAR_IMAGE: '@nexuschat_device_avatar_image',
   ACCESS_GRANTED: '@nexuschat_access_granted',
   CHAT_HISTORY: '@nexuschat_chat_',
   CONTACTS: '@nexuschat_contacts',
 };
 
-
-const _ENCRYPTED_KEY = 'UkFNMjIxNDA1'; 
-
-
-const _tacticalDecode = (encoded) => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let str = '';
-  for (let i = 0, e = 0; i < encoded.length; i += 4) {
-    let e1 = chars.indexOf(encoded.charAt(i));
-    let e2 = chars.indexOf(encoded.charAt(i + 1));
-    let e3 = chars.indexOf(encoded.charAt(i + 2));
-    let e4 = chars.indexOf(encoded.charAt(i + 3));
-    let c1 = (e1 << 2) | (e2 >> 4);
-    let c2 = ((e2 & 15) << 4) | (e3 >> 2);
-    let c3 = ((e3 & 3) << 6) | e4;
-    str += String.fromCharCode(c1);
-    if (e3 !== 64) str += String.fromCharCode(c2);
-    if (e4 !== 64) str += String.fromCharCode(c3);
-  }
-  return str;
-};
+/*
+// ============================================================================
+// [REMOVED FOR NORMAL USERS] - Tactical Access Key / PIN
+// ============================================================================
+// Previously used for military/tactical access verification:
+// const _ENCRYPTED_KEY = 'UkFNMjIxNDA1'; 
+// const _tacticalDecode = (encoded) => { ... };
+// ============================================================================
+*/
 
 class StorageService {
-  // ─── Device Identity ───────────────────────────────────────
+  // ─── Device Identity (Normal Consumer Profile) ───────────────
 
   /**
-   * Check if this is the first launch (no device name set)
+   * Check if this is the first launch (no device name set yet)
    */
   async isFirstLaunch() {
     const name = await AsyncStorage.getItem(KEYS.DEVICE_NAME);
-    return !name;
+    return !name || name.trim().length === 0;
   }
 
   /**
-   * Get saved device name
+   * Get saved user display name
    */
   async getDeviceName() {
     return await AsyncStorage.getItem(KEYS.DEVICE_NAME);
   }
 
   /**
-   * Save device name (set once on first launch)
+   * Save user display name (set during initial registration)
    */
   async setDeviceName(name) {
     await AsyncStorage.setItem(KEYS.DEVICE_NAME, name.trim());
   }
 
   /**
-   * Get saved device rank
+   * User status / bio (Replaced the military rank system)
+   * Kept backwards-compatible with socket protocol.
    */
   async getDeviceRank() {
-    return await AsyncStorage.getItem(KEYS.DEVICE_RANK) || 'Soldier';
+    // Return friendly default for normal users
+    const rank = await AsyncStorage.getItem(KEYS.DEVICE_RANK);
+    return rank || 'Active';
   }
 
   /**
-   * Save device rank
+   * Save user status / bio
    */
-  async setDeviceRank(rank) {
-    await AsyncStorage.setItem(KEYS.DEVICE_RANK, rank);
+  async setDeviceRank(status) {
+    await AsyncStorage.setItem(KEYS.DEVICE_RANK, status ? status.trim() : 'Active');
+  }
+
+  /**
+   * Optional custom avatar color preference
+   */
+  async getAvatarColor() {
+    return await AsyncStorage.getItem(KEYS.DEVICE_AVATAR_COLOR);
+  }
+
+  async setAvatarColor(color) {
+    if (color) {
+      await AsyncStorage.setItem(KEYS.DEVICE_AVATAR_COLOR, color);
+    }
+  }
+
+  /**
+   * User profile picture (local file URI or base64)
+   */
+  async getAvatarImage() {
+    return await AsyncStorage.getItem(KEYS.DEVICE_AVATAR_IMAGE);
+  }
+
+  async setAvatarImage(uri) {
+    if (uri) {
+      await AsyncStorage.setItem(KEYS.DEVICE_AVATAR_IMAGE, uri);
+    } else {
+      await AsyncStorage.removeItem(KEYS.DEVICE_AVATAR_IMAGE);
+    }
   }
 
   /**
@@ -166,18 +187,22 @@ class StorageService {
     }
   }
 
-  // ─── Access Control ───────────────────────────────────────
+  // ─── Access Control (Bypassed for Normal Users) ─────────────
 
   /**
-   * Check if access key has been entered successfully
+   * Check if access is granted.
+   * NOTE: Initial PIN / access key has been removed for normal users.
+   * Always returns true so users go directly to Registration or Home.
    */
   async isAccessGranted() {
-    const granted = await AsyncStorage.getItem(KEYS.ACCESS_GRANTED);
-    return granted === 'true';
+    // Commented out the old PIN verification check for normal consumer user flow:
+    // const granted = await AsyncStorage.getItem(KEYS.ACCESS_GRANTED);
+    // return granted === 'true';
+    return true;
   }
 
   /**
-   * Save access grant status
+   * Save access grant status (kept as harmless no-op)
    */
   async setAccessGranted() {
     await AsyncStorage.setItem(KEYS.ACCESS_GRANTED, 'true');
@@ -185,14 +210,19 @@ class StorageService {
 
   /**
    * Verify a key against the master key
+   * NOTE: Initial PIN check has been removed. Always returns true if called.
    */
   verifyKey(key) {
+    /*
+    // Old tactical PIN verification commented out:
     try {
       const decoded = _tacticalDecode(_ENCRYPTED_KEY);
       return key === decoded;
     } catch (e) {
       return false;
     }
+    */
+    return true;
   }
 
   // ─── Utilities ─────────────────────────────────────────────

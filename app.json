@@ -1,35 +1,53 @@
 {
   "expo": {
-    "name": "offlinechat",
-    "slug": "offlinechat",
+    "name": "OffNet Chat",
+    "slug": "offnet-chat",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/chaticon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/chaticon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0A0F0A"
-    },
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.offnetchat.app"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/chaticon.png",
-        "backgroundColor": "#0A0F0A"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D1117"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.army001.offlinechat"
+      "package": "com.offnetchat.app",
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
-      "favicon": "./assets/chaticon.png"
+      "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "63732a97-077d-4fd9-9b09-5a45cad60898"
+        "projectId": "9ba51d45-7f82-49ab-a54b-6ed3f1ec72d1"
       }
-    }
+    },
+    "plugins": [
+      "expo-status-bar",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow OffNet Chat to access your microphone for voice notes and real-time voice calls."
+        }
+      ],
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0D1117"
+        }
+      ]
+    ]
   }
 }
